@@ -68,7 +68,32 @@ marp: true
 
 -----
 
-## This is MB-70 from KOBELCO installed in Tanba Clean Center, that is owned by a municipality. It's only 70 kW, and it generates only 20 kW actually.
+## This is MB-70 from KOBELCO installed in Tanba Clean Center, that is owned by a municipality. It's only 70 kW, and it generates only 20 kW actually. KOBELCO is Japanese Steel company, No.3 in Japan. They built incineration plant 2015, also they installed ORC generator.
+
 ## @next
 
 ---------
+## This is 125XLT from AccessEnergy installed in incineration plant of ERTEC Service, that is private company operating MSW plant. They installed 2 ORC generator, therefore capacity is 250 kW. Incineration plant itself has 81.6 tons per day capacity, and heat source is 100 degree Celsius of hot water. I expect the heat source has a sufficient flow rate, but we currently lack the data to confirm. I have reached out for more information to do interview.
+## @next
+
+---------
+
+## We've seen two examples of ORC installations in Japan's incineration plants. Finally, I would like to talk about the challenges of implementing ORC.
+
+## @next
+
+---------
+
+## first one is the high failure rate. ORC is a relatively new technology, and there are still many unknowns about its long-term reliability. 
+
+## @next
+---------
+
+## second one is the high initial cost. ORC systems can be expensive to install, and this can be a barrier for some incineration plants.
+
+## @next
+---------
+
+## because of these challenges, the adoption of ORC in Japan's incineration plants has been slow. And some companies that were manufacturing ORC systems have gone out of business. 
+
+## However, I believe that ORC still has the potential to be a valuable tool for generating energy from waste, and I hope to see more incineration plants adopt this technology in the future.
