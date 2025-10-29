@@ -5,7 +5,7 @@
 不許可 or seq(許可-しない)[1] or seq(承認-しない)[1] or seq(同意-しない)[1] or seq(認可-しない)[1]
 
 *CLAUSE_POSITIVE_PERMISSION_CONSENT
-( 許可 or 承認 or 同意 or 認可 ) or seq(許可-する)[1] or seq(承認-する)[1] or seq(同意-する)[1] or seq(認可-する)[1]
+( 市長 or 村長 or 町長 ) and ( ( 許可 or 承認 or 同意 or 認可 ) or seq(許可-する)[1] or seq(承認-する)[1] or seq(同意-する)[1] or seq(認可-する)[1] )
 
 *CLAUSE_PENALTY_Lv1
 ( 罰則 or 罰金 or 過料 )
@@ -74,7 +74,10 @@ seq(ただし-場合)[b20] or seq(但し-場合)[b20]
 ( ( 事前 or 着手前 or 工事着手前 or 実施前 ) or までに or 期日 or 期限 )
 
 *STAKEHOLDER_RESIDENTS
-( 近隣住民 or 関係住民 or 地域住民 or 住民 )
+( 近隣住民 or 関係住民 or 地域住民 or 住民 or 周辺関係者 ) or near(隣接-土地所有者)[b10] or near(隣接-土地所有者等)[b10]
+
+*CLAUSE_STAKEHOLDER_CONFIRMATION
+( ( 近隣住民 or 関係住民 or 地域住民 or 住民 or 周辺関係者 or near(隣接-土地所有者)[b10] or near(隣接-土地所有者等)[b10] ) and ( 同意 or 承認 or 許可 ) )
 
 *STAKEHOLDER_LANDOWNER
 ( 土地所有者 or 地権者 or 関係権利者 )
