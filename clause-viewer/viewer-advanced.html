@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>条例テキストビューア - 統合分析版</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  <style>
+    :root {
+  --color-white: rgba(255, 255, 255, 1);
+  --color-black: rgba(0, 0, 0, 1);
+  --color-cream-50: rgba(252, 252, 249, 1);
+  --color-cream-100: rgba(255, 255, 253, 1);
+  --color-gray-200: rgba(245, 245, 245, 1);
+  --color-gray-300: rgba(167, 169, 169, 1);
+  --color-gray-400: rgba(119, 124, 124, 1);
+  --color-slate-500: rgba(98, 108, 113, 1);
+  --color-brown-600: rgba(94, 82, 64, 1);
+  --color-charcoal-700: rgba(31, 33, 33, 1);
+  --color-charcoal-800: rgba(38, 40, 40, 1);
+  --color-slate-900: rgba(19, 52, 59, 1);
+  --color-teal-300: rgba(50, 184, 198, 1);
+  --color-teal-400: rgba(45, 166, 178, 1);
+  --color-teal-500: rgba(33, 128, 141, 1);
+  --color-teal-600: rgba(29, 116, 128, 1);
+  --color-teal-700: rgba(26, 104, 115, 1);
+  --color-teal-800: rgba(41, 150, 161, 1);
+  --color-red-400: rgba(255, 84, 89, 1);
+  --color-red-500: rgba(192, 21, 47, 1);
+  --color-orange-400: rgba(230, 129, 97, 1);
+  --color-orange-500: rgba(168, 75, 47, 1);
+  --color-brown-600-rgb: 94, 82, 64;
+  --color-teal-500-rgb: 33, 128, 141;
+  --color-slate-900-rgb: 19, 52, 59;
+  --color-slate-500-rgb: 98, 108, 113;
+  --color-red-500-rgb: 192, 21, 47;
+  --color-red-400-rgb: 255, 84, 89;
+  --color-orange-500-rgb: 168, 75, 47;
+  --color-orange-400-rgb: 230, 129, 97;
+  --color-bg-1: rgba(59, 130, 246, 0.08);
+  --color-bg-2: rgba(245, 158, 11, 0.08);
+  --color-bg-3: rgba(34, 197, 94, 0.08);
+  --color-bg-4: rgba(239, 68, 68, 0.08);
+  --color-bg-5: rgba(147, 51, 234, 0.08);
+  --color-bg-6: rgba(249, 115, 22, 0.08);
+  --color-bg-7: rgba(236, 72, 153, 0.08);
+  --color-bg-8: rgba(6, 182, 212, 0.08);
+  --color-background: var(--color-cream-50);
+  --color-surface: var(--color-cream-100);
+  --color-text: var(--color-slate-900);
+  --color-text-secondary: var(--color-slate-500);
+  --color-primary: var(--color-teal-500);
+  --color-primary-hover: var(--color-teal-600);
+  --color-primary-active: var(--color-teal-700);
+  --color-secondary: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-secondary-hover: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-secondary-active: rgba(var(--color-brown-600-rgb), 0.25);
+  --color-border: rgba(var(--color-brown-600-rgb), 0.2);
+  --color-btn-primary-text: var(--color-cream-50);
+  --color-card-border: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-card-border-inner: rgba(var(--color-brown-600-rgb), 0.12);
+  --color-error: var(--color-red-500);
+  --color-success: var(--color-teal-500);
+  --color-warning: var(--color-orange-500);
+  --color-info: var(--color-slate-500);
+  --color-focus-ring: rgba(var(--color-teal-500-rgb), 0.4);
+  --color-select-caret: rgba(var(--color-slate-900-rgb), 0.8);
+  --focus-ring: 0 0 0 3px var(--color-focus-ring);
+  --focus-outline: 2px solid var(--color-primary);
+  --status-bg-opacity: 0.15;
+  --status-border-opacity: 0.25;
+  --font-family-base: "FKGroteskNeue", "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-mono: "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
+  --font-size-4xl: 30px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 550;
+  --font-weight-bold: 600;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --letter-spacing-tight: -0.01em;
+  --space-0: 0;
+  --space-1: 1px;
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --radius-sm: 6px;
+  --radius-base: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+  --shadow-inset-sm: inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -1px 0 rgba(0, 0, 0, 0.03);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --container-sm: 640px;
+  --container-md: 768px;
+  --container-lg: 1024px;
+  --container-xl: 1280px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-gray-400-rgb: 119, 124, 124;
+    --color-teal-300-rgb: 50, 184, 198;
+    --color-gray-300-rgb: 167, 169, 169;
+    --color-gray-200-rgb: 245, 245, 245;
+    --color-bg-1: rgba(29, 78, 216, 0.15);
+    --color-bg-2: rgba(180, 83, 9, 0.15);
+    --color-bg-3: rgba(21, 128, 61, 0.15);
+    --color-bg-4: rgba(185, 28, 28, 0.15);
+    --color-bg-5: rgba(107, 33, 168, 0.15);
+    --color-bg-6: rgba(194, 65, 12, 0.15);
+    --color-bg-7: rgba(190, 24, 93, 0.15);
+    --color-bg-8: rgba(8, 145, 178, 0.15);
+    --color-background: var(--color-charcoal-700);
+    --color-surface: var(--color-charcoal-800);
+    --color-text: var(--color-gray-200);
+    --color-text-secondary: rgba(var(--color-gray-300-rgb), 0.7);
+    --color-primary: var(--color-teal-300);
+    --color-primary-hover: var(--color-teal-400);
+    --color-primary-active: var(--color-teal-800);
+    --color-secondary: rgba(var(--color-gray-400-rgb), 0.15);
+    --color-secondary-hover: rgba(var(--color-gray-400-rgb), 0.25);
+    --color-secondary-active: rgba(var(--color-gray-400-rgb), 0.3);
+    --color-border: rgba(var(--color-gray-400-rgb), 0.3);
+    --color-error: var(--color-red-400);
+    --color-success: var(--color-teal-300);
+    --color-warning: var(--color-orange-400);
+    --color-info: var(--color-gray-300);
+    --color-focus-ring: rgba(var(--color-teal-300-rgb), 0.4);
+    --color-btn-primary-text: var(--color-slate-900);
+    --color-card-border: rgba(var(--color-gray-400-rgb), 0.2);
+    --color-card-border-inner: rgba(var(--color-gray-400-rgb), 0.15);
+    --shadow-inset-sm: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+    --color-select-caret: rgba(var(--color-gray-200-rgb), 0.8);
+  }
+}
+
+@font-face {
+  font-family: 'FKGroteskNeue';
+  src: url('https://r2cdn.perplexity.ai/fonts/FKGroteskNeue.woff2') format('woff2');
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: var(--font-size-base);
+  font-family: var(--font-family-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text);
+  background-color: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-20) var(--space-32);
+  box-shadow: var(--shadow-sm);
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-16);
+}
+
+.header h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.header-tabs {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.tab-btn {
+  padding: var(--space-8) var(--space-16);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.tab-btn:hover {
+  background-color: var(--color-secondary-hover);
+}
+
+.tab-btn.active {
+  background-color: var(--color-primary);
+  color: var(--color-btn-primary-text);
+  border-color: var(--color-primary);
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-24);
+  gap: var(--space-24);
+}
+
+@media (min-width: 1024px) {
+  .main-content {
+    flex-direction: row;
+  }
+}
+
+.filter-section {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+@media (min-width: 1024px) {
+  .filter-section {
+    width: 420px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    position: sticky;
+    top: var(--space-24);
+  }
+}
+
+.filter-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-16);
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-card h2 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-12);
+  color: var(--color-text);
+}
+
+.button-grid {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.button-grid.municipalities {
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+}
+
+.button-grid.codings {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+
+.button-grid.analysis-filters {
+  grid-template-columns: 1fr;
+}
+
+.filter-btn {
+  padding: var(--space-6) var(--space-10);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filter-btn:hover {
+  background-color: var(--color-secondary-hover);
+  border-color: var(--color-primary);
+}
+
+.filter-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.filter-btn.selected {
+  background-color: var(--color-primary);
+  color: var(--color-btn-primary-text);
+  border-color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.filter-btn.selected:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.reset-btn {
+  width: 100%;
+  padding: var(--space-10) var(--space-16);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.reset-btn:hover {
+  background-color: var(--color-secondary-hover);
+}
+
+.reset-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.display-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.view-container {
+  display: none;
+}
+
+.view-container.active {
+  display: block;
+}
+
+.stats-bar {
+  background-color: var(--color-bg-1);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-base);
+  padding: var(--space-12) var(--space-16);
+  margin-bottom: var(--space-16);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.paragraphs-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.paragraph-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-16);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.paragraph-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.paragraph-header {
+  background-color: var(--color-bg-2);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-12);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.paragraph-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin-bottom: var(--space-8);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.municipality-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8);
+  background-color: var(--color-bg-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.analysis-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-top: var(--space-8);
+}
+
+.badge {
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.badge.regulation-type {
+  background-color: var(--color-bg-1);
+  color: var(--color-text);
+}
+
+.badge.zone-type {
+  background-color: var(--color-bg-5);
+  color: var(--color-text);
+}
+
+.badge.strictness {
+  color: white;
+}
+
+.badge.strictness.very-strict {
+  background-color: rgba(220, 38, 38, 0.8);
+}
+
+.badge.strictness.strict {
+  background-color: rgba(234, 88, 12, 0.8);
+}
+
+.badge.strictness.standard {
+  background-color: rgba(250, 204, 21, 0.7);
+  color: var(--color-text);
+}
+
+.badge.strictness.lenient {
+  background-color: rgba(34, 197, 94, 0.7);
+  color: var(--color-text);
+}
+
+.badge.process {
+  background-color: var(--color-bg-6);
+  color: var(--color-text);
+}
+
+.badge.editable {
+  cursor: pointer;
+  position: relative;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.badge.editable:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
+
+.badge.editable::after {
+  content: '✏️';
+  font-size: 10px;
+  margin-left: 4px;
+  opacity: 0.6;
+}
+
+.edit-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-8);
+  z-index: 1000;
+  min-width: 200px;
+  display: none;
+}
+
+.edit-dropdown.show {
+  display: block;
+}
+
+.edit-dropdown label {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-4);
+  font-weight: var(--font-weight-medium);
+}
+
+.edit-dropdown select {
+  width: 100%;
+  padding: var(--space-6) var(--space-8);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  margin-bottom: var(--space-8);
+  cursor: pointer;
+}
+
+.edit-dropdown select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.edit-dropdown-buttons {
+  display: flex;
+  gap: var(--space-6);
+  margin-top: var(--space-8);
+}
+
+.edit-dropdown button {
+  flex: 1;
+  padding: var(--space-6) var(--space-8);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.edit-dropdown button.save-btn {
+  background-color: var(--color-primary);
+  color: var(--color-btn-primary-text);
+  border-color: var(--color-primary);
+}
+
+.edit-dropdown button.save-btn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.edit-dropdown button.cancel-btn {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.edit-dropdown button.cancel-btn:hover {
+  background-color: var(--color-secondary-hover);
+}
+
+.paragraph-text {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.highlight {
+  background-color: rgba(245, 158, 11, 0.3);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Dashboard styles */
+.dashboard-container {
+  display: grid;
+  gap: var(--space-20);
+}
+
+.dashboard-section {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-20);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-section h2 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-16);
+  color: var(--color-text);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-16);
+}
+
+.chart-container {
+  position: relative;
+  height: 300px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-12);
+}
+
+.stat-card {
+  background-color: var(--color-bg-1);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-base);
+  padding: var(--space-12);
+  text-align: center;
+}
+
+.stat-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+}
+
+.stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-4);
+}
+
+.loading {
+  text-align: center;
+  padding: var(--space-32);
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+}
+
+.error {
+  background-color: rgba(var(--color-error-rgb), 0.1);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-base);
+  padding: var(--space-16);
+  color: var(--color-error);
+  margin: var(--space-16);
+}
+
+.no-results {
+  text-align: center;
+  padding: var(--space-32);
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-secondary);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
+}
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <div class="header-content">
+        <h1>条例テキストビューア - 統合分析版</h1>
+        <div class="header-tabs">
+          <button class="tab-btn active" data-view="text">テキスト表示</button>
+          <button class="tab-btn" data-view="dashboard">統計ダッシュボード</button>
+        </div>
+      </div>
+    </header>
+    
+    <main class="main-content">
+      <aside class="filter-section">
+        <div class="filter-card">
+          <h2>🏢 自治体を選択</h2>
+          <div id="municipalities" class="button-grid municipalities"></div>
+        </div>
+        
+        <div class="filter-card">
+          <h2>📋 コーディングを選択</h2>
+          <div id="codings" class="button-grid codings"></div>
+        </div>
+        
+        <div class="filter-card">
+          <h2>🔍 分析フィルタ</h2>
+          
+          <h3 style="font-size: 14px; margin: 12px 0 8px; color: var(--color-text-secondary);">規制タイプ</h3>
+          <div id="regulationTypes" class="button-grid analysis-filters"></div>
+          
+          <h3 style="font-size: 14px; margin: 12px 0 8px; color: var(--color-text-secondary);">区域類型</h3>
+          <div id="zoneTypes" class="button-grid analysis-filters"></div>
+          
+          <h3 style="font-size: 14px; margin: 12px 0 8px; color: var(--color-text-secondary);">厳格度レベル</h3>
+          <div id="strictnessLevels" class="button-grid analysis-filters"></div>
+          
+          <h3 style="font-size: 14px; margin: 12px 0 8px; color: var(--color-text-secondary);">プロセス重視度</h3>
+          <div id="processTypes" class="button-grid analysis-filters"></div>
+        </div>
+        
+        <button id="resetBtn" class="reset-btn">🔄 すべてリセット</button>
+      </aside>
+      
+      <section class="display-section">
+        <!-- Text View -->
+        <div id="textView" class="view-container active">
+          <div id="stats" class="stats-bar"></div>
+          <div id="paragraphs" class="paragraphs-container"></div>
+        </div>
+        
+        <!-- Dashboard View -->
+        <div id="dashboardView" class="view-container">
+          <div class="dashboard-container">
+            <div class="dashboard-section">
+              <h2>📊 全体統計</h2>
+              <div class="stats-grid" id="overallStats"></div>
+            </div>
+            
+            <div class="dashboard-section">
+              <h2>📈 分布グラフ</h2>
+              <div class="dashboard-grid">
+                <div class="chart-container">
+                  <canvas id="regulationChart"></canvas>
+                </div>
+                <div class="chart-container">
+                  <canvas id="zoneChart"></canvas>
+                </div>
+                <div class="chart-container">
+                  <canvas id="strictnessChart"></canvas>
+                </div>
+                <div class="chart-container">
+                  <canvas id="processChart"></canvas>
+                </div>
+              </div>
+            </div>
+            
+            <div class="dashboard-section">
+              <h2>🎯 スコア分析</h2>
+              <div class="dashboard-grid">
+                <div class="chart-container">
+                  <canvas id="scatterStrictnessResident"></canvas>
+                </div>
+                <div class="chart-container">
+                  <canvas id="scatterStrictnessProcedure"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    let allData = {};
+    let municipalities = [];
+    let codingTypes = [];
+    let municipalityInfo = {};
+    let statistics = {};
+    let selectedMunicipality = null;
+    let selectedCodes = [];
+    let selectedRegulationType = null;
+    let selectedZoneType = null;
+    let selectedStrictnessLevel = null;
+    let selectedProcessType = null;
+    let currentView = 'text';
+    let charts = {};
+
+    // データ取得
+    async function fetchData() {
+      const response = await fetch('data-integrated.json?t=' + new Date().getTime());
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    }
+
+    // 初期化
+    async function init() {
+      try {
+        showLoading();
+        allData = await fetchData();
+        
+        // グローバル変数を設定
+        municipalities = allData.municipalities || [];
+        coding_types = allData.coding_types || [];
+        municipality_info = allData.municipality_info || {};
+        statistics = allData.statistics || {};
+        
+        initializeUI();
+        updateDisplay();
+        setupEventListeners();
+        setupTabSwitching();
+        
+      } catch (error) {
+        console.error('初期化エラー:', error);
+        showError('データの読み込みに失敗しました。ファイルが存在するか確認してください。');
+      } finally {
+        // ローディング表示を消す（もしあれば）
+        const loadingEl = document.querySelector('.loading');
+        if (loadingEl) loadingEl.remove();
+      }
+    }
+    
+    // UIを初期化
+    function initializeUI() {
+      // 自治体ボタンを生成
+      const municipalityContainer = document.getElementById('municipalities');
+      municipalityContainer.innerHTML = ''; // Clear existing
+      municipalities.forEach(mun => {
+        const btn = document.createElement('button');
+        btn.textContent = mun;
+        btn.className = 'filter-btn';
+        btn.setAttribute('data-municipality', mun);
+        btn.addEventListener('click', () => selectMunicipality(mun, btn));
+        municipalityContainer.appendChild(btn);
+      });
+
+      // コーディングボタンを生成
+      const codingContainer = document.getElementById('codings');
+      codingContainer.innerHTML = ''; // Clear existing
+      coding_types.forEach(code => {
+        const btn = document.createElement('button');
+        btn.textContent = code;
+        btn.className = 'filter-btn';
+        btn.setAttribute('data-coding', code);
+        btn.addEventListener('click', () => toggleCoding(code, btn));
+        codingContainer.appendChild(btn);
+      });
+
+      // 分析フィルタを生成
+      initializeAnalysisFilters();
+
+      // リセットボタン
+      document.getElementById('resetBtn').addEventListener('click', resetFilters);
+    }
+
+    // 分析フィルタを初期化
+    function initializeAnalysisFilters() {
+      // 規制タイプ
+      const regulationTypes = Object.keys(statistics['規制タイプ分布'] || {});
+      const regulationContainer = document.getElementById('regulationTypes');
+      regulationContainer.innerHTML = ''; // Clear existing
+      regulationTypes.forEach(type => {
+        const btn = createAnalysisFilterButton(type, () => {
+          toggleAnalysisFilter('regulation', type, btn);
+        });
+        regulationContainer.appendChild(btn);
+      });
+
+      // 区域類型
+      const zoneTypes = Object.keys(statistics['区域類型分布'] || {});
+      const zoneContainer = document.getElementById('zoneTypes');
+      zoneContainer.innerHTML = ''; // Clear existing
+      zoneTypes.forEach(type => {
+        const btn = createAnalysisFilterButton(type, () => {
+          toggleAnalysisFilter('zone', type, btn);
+        });
+        zoneContainer.appendChild(btn);
+      });
+
+      // 厳格度レベル
+      const strictnessLevels = ['非常に厳格', '厳格', '標準', '緩やか'];
+      const strictnessContainer = document.getElementById('strictnessLevels');
+      strictnessContainer.innerHTML = ''; // Clear existing
+      strictnessLevels.forEach(level => {
+        const btn = createAnalysisFilterButton(level, () => {
+          toggleAnalysisFilter('strictness', level, btn);
+        });
+        strictnessContainer.appendChild(btn);
+      });
+
+      // プロセス重視度
+      const processTypes = Object.keys(statistics['プロセス重視度分布'] || {});
+      const processContainer = document.getElementById('processTypes');
+      processContainer.innerHTML = ''; // Clear existing
+      processTypes.forEach(type => {
+        const btn = createAnalysisFilterButton(type, () => {
+          toggleAnalysisFilter('process', type, btn);
+        });
+        processContainer.appendChild(btn);
+      });
+    }
+
+    function createAnalysisFilterButton(text, onClick) {
+      const btn = document.createElement('button');
+      btn.textContent = text;
+      btn.className = 'filter-btn';
+      btn.addEventListener('click', onClick);
+      return btn;
+    }
+
+    function toggleAnalysisFilter(filterType, value, btnElement) {
+      const filterMap = {
+        'regulation': 'selectedRegulationType',
+        'zone': 'selectedZoneType',
+        'strictness': 'selectedStrictnessLevel',
+        'process': 'selectedProcessType'
+      };
+      
+      const varName = filterMap[filterType];
+      const currentValue = window[varName];
+      
+      // 同じカテゴリの他のボタンを解除
+      btnElement.parentElement.querySelectorAll('.filter-btn.selected').forEach(b => {
+        b.classList.remove('selected');
+      });
+      
+      if (currentValue === value) {
+        window[varName] = null;
+      } else {
+        window[varName] = value;
+        btnElement.classList.add('selected');
+      }
+      
+      updateDisplay();
+    }
+
+    // 自治体を選択
+    function selectMunicipality(mun, btnElement) {
+      if (selectedMunicipality === mun) {
+        selectedMunicipality = null;
+        btnElement.classList.remove('selected');
+      } else {
+        document.querySelectorAll('[data-municipality].selected').forEach(b => {
+          b.classList.remove('selected');
+        });
+        selectedMunicipality = mun;
+        btnElement.classList.add('selected');
+      }
+      updateDisplay();
+    }
+
+    // コーディングを選択/解除
+    function toggleCoding(code, btnElement) {
+      const index = selectedCodes.indexOf(code);
+      if (index > -1) {
+        selectedCodes.splice(index, 1);
+        btnElement.classList.remove('selected');
+      } else {
+        selectedCodes.push(code);
+        btnElement.classList.add('selected');
+      }
+      updateDisplay();
+    }
+
+    // フィルタをリセット
+    function resetFilters() {
+      selectedMunicipality = null;
+      selectedCodes = [];
+      selectedRegulationType = null;
+      selectedZoneType = null;
+      selectedStrictnessLevel = null;
+      selectedProcessType = null;
+      
+      document.querySelectorAll('.filter-btn.selected').forEach(btn => {
+        btn.classList.remove('selected');
+      });
+      
+      updateDisplay();
+    }
+
+    // 表示を更新
+    function updateDisplay() {
+      const filtered = filterParagraphs();
+      displayParagraphs(filtered);
+    }
+
+    // 段落をフィルタリング
+    function filterParagraphs() {
+      let filtered = allData.paragraphs || [];
+      
+      // 自治体でフィルタ
+      if (selectedMunicipality) {
+        filtered = filtered.filter(p => p.municipality === selectedMunicipality);
+      }
+      
+      // 分析フィルタでフィルタ
+      if (selectedRegulationType || selectedZoneType || selectedStrictnessLevel || selectedProcessType) {
+        // 該当自治体のリストを取得
+        const validMunicipalities = Object.keys(municipality_info).filter(mun => {
+          const info = municipality_info[mun];
+          if (selectedRegulationType && info['規制タイプ'] !== selectedRegulationType) return false;
+          if (selectedZoneType && info['区域類型'] !== selectedZoneType) return false;
+          if (selectedStrictnessLevel && info['厳格度_絶対'] !== selectedStrictnessLevel) return false;
+          if (selectedProcessType && info['プロセス重視度'] !== selectedProcessType) return false;
+          return true;
+        });
+        
+        filtered = filtered.filter(p => validMunicipalities.includes(p.municipality));
+      }
+      
+      // コーディングでフィルタ（AND条件）
+      if (selectedCodes.length > 0) {
+        filtered = filtered.filter(p => {
+          return selectedCodes.every(code => p.codes && p.codes.includes(code));
+        });
+      }
+      
+      return filtered;
+    }
+
+    // 段落を表示
+    function displayParagraphs(paragraphs) {
+      const container = document.getElementById('paragraphs');
+      const statsBar = document.getElementById('stats');
+      
+      // 統計情報を表示
+      let statsText = `表示件数: ${paragraphs.length}件`;
+      if (selectedMunicipality) {
+        statsText += ` | 自治体: ${selectedMunicipality}`;
+      }
+      if (selectedRegulationType) {
+        statsText += ` | 規制: ${selectedRegulationType}`;
+      }
+      if (selectedZoneType) {
+        statsText += ` | 区域: ${selectedZoneType}`;
+      }
+      if (selectedStrictnessLevel) {
+        statsText += ` | 厳格度: ${selectedStrictnessLevel}`;
+      }
+      if (selectedProcessType) {
+        statsText += ` | プロセス: ${selectedProcessType}`;
+      }
+      if (selectedCodes.length > 0) {
+        statsText += ` | コーディング: ${selectedCodes.join(', ')}`;
+      }
+      statsBar.textContent = statsText;
+      
+      container.innerHTML = '';
+      
+      if (paragraphs.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.className = 'no-results';
+        noResults.textContent = '該当する段落が見つかりませんでした';
+        container.appendChild(noResults);
+        return;
+      }
+      
+      paragraphs.forEach(para => {
+        const card = document.createElement('div');
+        card.className = 'paragraph-card';
+        
+        // ヘッダー部分
+        const header = document.createElement('div');
+        header.className = 'paragraph-header';
+        const codes = para.codes && para.codes.length > 0 ? para.codes.join(', ') : 'コーディングなし';
+        header.textContent = `[${para.h5}-${para.dan}] コーディング: ${codes}`;
+        card.appendChild(header);
+        
+        // メタ情報
+        const meta = document.createElement('div');
+        meta.className = 'paragraph-meta';
+        
+        if (para.municipality) {
+          const munBadge = document.createElement('div');
+          munBadge.className = 'municipality-badge';
+          munBadge.textContent = `🏢 ${para.municipality}`;
+          meta.appendChild(munBadge);
+        }
+        if (para.year) {
+          const yearSpan = document.createElement('span');
+          yearSpan.textContent = `年: ${para.year}`;
+          meta.appendChild(yearSpan);
+        }
+        if (para.category) {
+          const catSpan = document.createElement('span');
+          catSpan.textContent = `区分: ${para.category}`;
+          meta.appendChild(catSpan);
+        }
+        
+        card.appendChild(meta);
+        
+        // 分析バッジを追加
+        const munInfo = municipality_info[para.municipality];
+        if (munInfo) {
+          const analysisBadges = document.createElement('div');
+          analysisBadges.className = 'analysis-badges';
+          
+          // 規制タイプ
+          const regBadge = createEditableBadge(
+            'badge regulation-type',
+            munInfo['規制タイプ'],
+            para.municipality,
+            '規制タイプ',
+            Object.keys(statistics['規制タイプ分布'] || {})
+          );
+          analysisBadges.appendChild(regBadge);
+          
+          // 区域類型
+          const zoneBadge = createEditableBadge(
+            'badge zone-type',
+            munInfo['区域類型'],
+            para.municipality,
+            '区域類型',
+            Object.keys(statistics['区域類型分布'] || {})
+          );
+          analysisBadges.appendChild(zoneBadge);
+          
+          // 厳格度
+          const strictBadge = createEditableBadge(
+            'badge strictness ' + getStrictnessClass(munInfo['厳格度_絶対']),
+            `厳格度: ${munInfo['厳格度_絶対']}`,
+            para.municipality,
+            '厳格度_絶対',
+            ['非常に厳格', '厳格', '標準', '緩やか']
+          );
+          analysisBadges.appendChild(strictBadge);
+          
+          // プロセス重視度
+          const procBadge = createEditableBadge(
+            'badge process',
+            munInfo['プロセス重視度'],
+            para.municipality,
+            'プロセス重視度',
+            Object.keys(statistics['プロセス重視度分布'] || {})
+          );
+          analysisBadges.appendChild(procBadge);
+          
+          card.appendChild(analysisBadges);
+        }
+        
+        // 本文
+        const text = document.createElement('div');
+        text.className = 'paragraph-text';
+        text.innerHTML = highlightText(para.text, para.codes || []);
+        card.appendChild(text);
+        
+        container.appendChild(card);
+      });
+    }
+
+    // イベント委譲のためのリスナーをセットアップ
+    function setupEventListeners() {
+      const paragraphsContainer = document.getElementById('paragraphs');
+      paragraphsContainer.addEventListener('click', (e) => {
+        const badge = e.target.closest('.editable');
+        if (badge) {
+          e.stopPropagation();
+          const { municipality, field, options } = badge.dataset;
+          showEditDropdown(badge, municipality, field, JSON.parse(options));
+        }
+      });
+    }
+
+    function getStrictnessClass(level) {
+      const map = {
+        '非常に厳格': 'very-strict',
+        '厳格': 'strict',
+        '標準': 'standard',
+        '緩やか': 'lenient'
+      };
+      return map[level] || 'standard';
+    }
+
+    // 編集可能なバッジを作成
+    function createEditableBadge(className, text, municipality, field, options) {
+      const badge = document.createElement('span');
+      badge.className = className + ' editable';
+      badge.textContent = text;
+      
+      // イベントリスナーの代わりにdata属性を使用
+      badge.dataset.municipality = municipality;
+      badge.dataset.field = field;
+      badge.dataset.options = JSON.stringify(options);
+      
+      return badge;
+    }
+
+    // 編集ドロップダウンを表示
+    function showEditDropdown(badgeElement, municipality, field, options) {
+      // デバッグ情報
+      console.log('showEditDropdown called:', { municipality, field, options, currentValue: municipality_info[municipality]?.[field] });
+      
+      // 既存のドロップダウンを閉じる
+      document.querySelectorAll('.edit-dropdown').forEach(d => d.remove());
+      
+      // バリデーション
+      if (!municipality_info[municipality]) {
+        console.error(`Municipality not found: ${municipality}`);
+        showToast(`自治体情報が見つかりません: ${municipality}`, 'error');
+        return;
+      }
+      
+      if (!options || options.length === 0) {
+        console.error(`No options provided for field: ${field}`);
+        showToast(`選択肢がありません: ${field}`, 'error');
+        return;
+      }
+      
+      const dropdown = document.createElement('div');
+      dropdown.className = 'edit-dropdown show';
+      
+      // ドロップダウン内のクリックイベントを伝播させない
+      dropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      
+      const label = document.createElement('label');
+      label.textContent = `${field}を編集:`;
+      dropdown.appendChild(label);
+      
+      const select = document.createElement('select');
+      const currentValue = municipality_info[municipality][field];
+      
+      console.log('Creating select options:', options);
+      
+      // selectのクリックイベントを伝播させない
+      select.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      
+      select.addEventListener('change', (e) => {
+        e.stopPropagation();
+      });
+      
+      options.forEach(option => {
+        const opt = document.createElement('option');
+        opt.value = option;
+        opt.textContent = option;
+        if (option === currentValue) {
+          opt.selected = true;
+        }
+        select.appendChild(opt);
+      });
+      dropdown.appendChild(select);
+      
+      const buttons = document.createElement('div');
+      buttons.className = 'edit-dropdown-buttons';
+      
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'save-btn';
+      saveBtn.textContent = '保存';
+      saveBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const newValue = select.value;
+        console.log('Save clicked:', { municipality, field, newValue });
+        saveMunicipalityEdit(municipality, field, newValue, badgeElement);
+        dropdown.remove();
+      });
+      buttons.appendChild(saveBtn);
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'cancel-btn';
+      cancelBtn.textContent = 'キャンセル';
+      cancelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        console.log('Cancel clicked');
+        dropdown.remove();
+      });
+      buttons.appendChild(cancelBtn);
+      
+      dropdown.appendChild(buttons);
+      badgeElement.appendChild(dropdown);
+      
+      // 外側クリックで閉じる（ドロップダウンとバッジ以外をクリックした場合）
+      setTimeout(() => {
+        const closeDropdown = (e) => {
+          if (!dropdown.contains(e.target) && !badgeElement.contains(e.target)) {
+            dropdown.remove();
+            document.removeEventListener('click', closeDropdown);
+          }
+        };
+        document.addEventListener('click', closeDropdown);
+      }, 100);
+    }
+
+    // 自治体情報の編集を保存
+    async function saveMunicipalityEdit(municipality, field, newValue, badgeElement) {
+      try {
+        // メモリ内のデータを更新
+        const oldValue = municipality_info[municipality][field];
+        municipality_info[municipality][field] = newValue;
+        
+        // data-integrated.json を更新
+        allData.municipality_info = municipality_info;
+        
+        // サーバーに保存リクエストを送信(PHPサーバーがある場合)
+        try {
+          const response = await fetch('save-edit.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              municipality: municipality,
+              field: field,
+              value: newValue
+            })
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+              updateBadgeDisplay(badgeElement, field, newValue);
+              showToast(`${municipality}の${field}を更新しました (バックアップ: ${result.backup})`, 'success');
+              updateDisplay();
+              return;
+            }
+          }
+        } catch (fetchError) {
+          // PHPサーバーがない場合は次の処理へ
+          console.log('PHPサーバーが利用できません。ダウンロード機能を使用してください。');
+        }
+        
+        // PHPが使えない場合はダウンロード機能を提供
+        updateBadgeDisplay(badgeElement, field, newValue);
+        
+        showToast(
+          `${municipality}の${field}を「${oldValue}」から「${newValue}」に更新しました。\n「JSONダウンロード」ボタンで保存してください。`, 
+          'warning'
+        );
+        
+        // ダウンロードボタンを表示
+        showDownloadButton();
+        updateDisplay();
+        
+      } catch (error) {
+        console.error('保存エラー:', error);
+        
+        // エラー時はロールバック
+        municipality_info[municipality][field] = oldValue;
+        
+        showToast('編集の保存に失敗しました', 'error');
+      }
+    }
+
+    // バッジ表示を更新
+    function updateBadgeDisplay(badgeElement, field, newValue) {
+      const displayText = field === '厳格度_絶対' ? `厳格度: ${newValue}` : newValue;
+      badgeElement.textContent = displayText;
+      
+      // 厳格度の場合、クラスも更新
+      if (field === '厳格度_絶対') {
+        badgeElement.className = badgeElement.className.replace(/very-strict|strict|standard|lenient/g, '');
+        badgeElement.className += ' ' + getStrictnessClass(newValue);
+      }
+    }
+
+    // JSONダウンロードボタンを表示
+    function showDownloadButton() {
+      if (document.getElementById('download-json-btn')) return; // 既に存在する場合
+      
+      const btn = document.createElement('button');
+      btn.id = 'download-json-btn';
+      btn.innerHTML = '💾 JSONダウンロード';
+      btn.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: var(--shadow-lg);
+        z-index: 9999;
+        transition: all 0.3s;
+        animation: pulse 2s infinite;
+      `;
+      
+      btn.addEventListener('mouseover', () => {
+        btn.style.transform = 'scale(1.05)';
+        btn.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.4)';
+      });
+      
+      btn.addEventListener('mouseout', () => {
+        btn.style.transform = 'scale(1)';
+        btn.style.boxShadow = 'var(--shadow-lg)';
+      });
+      
+      btn.addEventListener('click', downloadJSON);
+      
+      document.body.appendChild(btn);
+      
+      // パルスアニメーション
+      if (!document.querySelector('#pulse-animation')) {
+        const style = document.createElement('style');
+        style.id = 'pulse-animation';
+        style.textContent = `
+          @keyframes pulse {
+            0%, 100% { box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); }
+            50% { box-shadow: 0 4px 20px rgba(102, 126, 234, 0.6); }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+
+    // JSONをダウンロード
+    function downloadJSON() {
+      const jsonStr = JSON.stringify(allData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `data-integrated_edited_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      showToast('JSONファイルをダウンロードしました。data-integrated.jsonと置き換えてください。', 'success');
+    }
+
+    // トースト通知を表示
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 16px 20px;
+        background-color: ${type === 'success' ? 'var(--color-success)' : 
+                          type === 'error' ? 'var(--color-error)' : 
+                          'var(--color-info)'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: var(--shadow-lg);
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+        max-width: 400px;
+        font-size: 14px;
+      `;
+      toast.textContent = message;
+      
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // アニメーション用のスタイルを動的に追加
+    if (!document.querySelector('#toast-animations')) {
+      const style = document.createElement('style');
+      style.id = 'toast-animations';
+      style.textContent = `
+        @keyframes slideIn {
+          from {
+            transform: translateX(400px);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        @keyframes slideOut {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(400px);
+            opacity: 0;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // テキストをハイライト
+    function highlightText(text, codes) {
+      if (!text || codes.length === 0) {
+        return escapeHtml(text || '');
+      }
+      
+      // コーディングルール v3.5 に基づく包括的なキーワードマッピング
+      const keywords = {
+        '*CLAUSE_EXPLANATION': [
+          '説明会', '説明の場', '説明', '周知', '住民説明', '近隣説明', '地域住民説明'
+        ],
+        '*CLAUSE_NEGATIVE_PERMISSION_CONSENT': [
+          '不許可', '許可しない', '承認しない', '同意しない', '認可しない'
+        ],
+        '*CLAUSE_POSITIVE_PERMISSION_CONSENT': [
+          '市長', '村長', '町長', '許可', '承認', '同意', '認可'
+        ],
+        '*CLAUSE_PENALTY_Lv2': [
+          '罰則', '罰金', '過料'
+        ],
+        '*CLAUSE_PENALTY_Lv1': [
+          '公表', '氏名公表', '勧告', '命令', '措置命令', '措置を命ずる'
+        ],
+        '*CLAUSE_RESTRICTED_ZONE': [
+          '土砂災害特別警戒区域', '土砂災害警戒区域', '保安林', '市街化調整区域',
+          '文化財', '河川保全区域', '海岸保全区域', '急傾斜地崩壊危険区域', '地すべり防止区域'
+        ],
+        '*CLAUSE_ZONE_Lv1': [
+          '抑制区域', '制限区域', '保全区域', '抑制地区', '制限地区', '保全地区'
+        ],
+        '*CLAUSE_ZONE_Lv2': [
+          '禁止区域', '禁止地区'
+        ],
+        '*CLAUSE_ENVIRONMENT': [
+          '濁水', '低周波音', '反射', '低反射', '景観', '生態系', '騒音', '振動',
+          '土砂流出', '伐採', '保全', '保護', '自然環境', '水質', '土壌', '動植物'
+        ],
+        '*CLAUSE_DOC_REQUIREMENTS': [
+          '申請書', '申請書類', '申請図', '申請図面', '申請計画書',
+          '届出書', '届出書類', '届出図', '届出図面', '届出計画書',
+          '提出書', '提出書類', '提出図', '提出図面', '提出計画書',
+          '添付書類', '添付図', '添付図面'
+        ],
+        '*CLAUSE_DRAWINGS': [
+          '位置図', '現況平面図', '平面図', '断面図', '構造図',
+          '造成計画平面図', '排水計画平面図', '土地利用計画平面図', '公図', '現況写真'
+        ],
+        '*CLAUSE_DECOMMISSION_MAINTENANCE': [
+          '撤去', '原状回復', '維持管理', '保守', '点検', '補修'
+        ],
+        '*CLAUSE_SIGNAGE': [
+          '標識', '設置', '表示', '掲出', '掲示'
+        ],
+        '*CLAUSE_PUBLICITY': [
+          '縦覧', '公告', '公示', '告示', '意見公募', 'パブリックコメント'
+        ],
+        '*CLAUSE_HEARING': [
+          '公聴会', '意見聴取', '聴聞'
+        ],
+        '*CLAUSE_FINANCE': [
+          '資金計画', '保証金', '担保', '保険', '負担金'
+        ],
+        '*CLAUSE_EQUIPMENT_NOISE': [
+          'パワーコンディショナー', 'インバータ', 'PCS', '機器騒音', '機器低周波音'
+        ],
+        '*MODAL_PROHIBIT': [
+          'してはならない', '禁止する', 'てはならない'
+        ],
+        '*MODAL_MUST': [
+          'しなければならない', 'しなければならず', 'なければならない'
+        ],
+        '*MODAL_SHOULD': [
+          '努める', '配慮する', '望ましい', '努めなければならない'
+        ],
+        '*GUARD_EXCEPTION_TADASHI': [
+          'ただし', '但し', 'ただし場合', '但し場合'
+        ],
+        '*PROCEDURE_NOTICE_MUNICIPARITY': [
+          '通知', '指示', '命じる', '求める'
+        ],
+        '*PROCEDURE_CONSULTAION': [
+          '協議'
+        ],
+        '*PROCEDURE_NOTICE_OPERATOR': [
+          '報告', '連絡', '届出', '届け出る'
+        ],
+        '*PROCEDURE_TIMING': [
+          '事前', '着手前', '工事着手前', '実施前', 'までに', '期日', '期限'
+        ],
+        '*STAKEHOLDER_RESIDENTS': [
+          '近隣住民', '関係住民', '地域住民', '住民', '周辺関係者',
+          '隣接土地所有者', '隣接土地所有者等'
+        ],
+        '*CLAUSE_STAKEHOLDER_CONFIRMATION': [
+          '住民同意', '近隣同意', '関係住民同意', '地域住民同意',
+          '住民承認', '住民許可'
+        ],
+        '*STAKEHOLDER_LANDOWNER': [
+          '土地所有者', '地権者', '関係権利者'
+        ],
+        '*GEO_REFERENCES': [
+          '谷', '沢', '急斜面', '水路', '河川', 'ため池', '調整池', '山腹', '尾根', '谷筋'
+        ]
+      };
+      
+      let highlightedText = escapeHtml(text);
+      const allKeywords = [];
+      
+      codes.forEach(code => {
+        if (keywords[code]) {
+          allKeywords.push(...keywords[code]);
+        }
+      });
+      
+      const uniqueKeywords = [...new Set(allKeywords)];
+      uniqueKeywords.sort((a, b) => b.length - a.length);
+      
+      uniqueKeywords.forEach(keyword => {
+        const regex = new RegExp(`(${escapeRegExp(keyword)})`, 'g');
+        highlightedText = highlightedText.replace(regex, '<span class="highlight">$1</span>');
+      });
+      
+      return highlightedText;
+    }
+
+    // HTMLエスケープ
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // 正規表現用のエスケープ
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // タブ切り替え
+    function setupTabSwitching() {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const view = btn.getAttribute('data-view');
+          switchView(view);
+          
+          // アクティブなタブを更新
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+    }
+
+    function switchView(view) {
+      currentView = view;
+      
+      document.querySelectorAll('.view-container').forEach(container => {
+        container.classList.remove('active');
+      });
+      
+      if (view === 'text') {
+        document.getElementById('textView').classList.add('active');
+      } else if (view === 'dashboard') {
+        document.getElementById('dashboardView').classList.add('active');
+        initializeDashboard();
+      }
+    }
+
+    // ダッシュボードを初期化
+    function initializeDashboard() {
+      renderOverallStats();
+      renderCharts();
+    }
+
+    function renderOverallStats() {
+      const container = document.getElementById('overallStats');
+      container.innerHTML = '';
+      
+      const stats = [
+        { label: '自治体数', value: municipalities.length },
+        { label: '段落数', value: allData.paragraphs.length },
+        { label: 'コーディング種類', value: codingTypes.length },
+        { label: '平均厳格度スコア', value: statistics['厳格度スコア統計']['平均'].toFixed(1) },
+        { label: '平均住民参加スコア', value: statistics['住民参加スコア統計']['平均'].toFixed(1) },
+        { label: '平均手続きスコア', value: statistics['手続きスコア統計']['平均'].toFixed(1) }
+      ];
+      
+      stats.forEach(stat => {
+        const card = document.createElement('div');
+        card.className = 'stat-card';
+        card.innerHTML = `
+          <div class="stat-value">${stat.value}</div>
+          <div class="stat-label">${stat.label}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderCharts() {
+      // 既存のチャートを破棄
+      Object.values(charts).forEach(chart => {
+        if (chart) chart.destroy();
+      });
+      charts = {};
+      
+      // 規制タイプ分布
+      charts.regulation = new Chart(document.getElementById('regulationChart'), {
+        type: 'pie',
+        data: {
+          labels: Object.keys(statistics['規制タイプ分布']),
+          datasets: [{
+            data: Object.values(statistics['規制タイプ分布']),
+            backgroundColor: [
+              'rgba(59, 130, 246, 0.7)',
+              'rgba(245, 158, 11, 0.7)',
+              'rgba(34, 197, 94, 0.7)'
+            ]
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: '規制タイプ分布'
+            },
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }
+      });
+      
+      // 区域類型分布
+      charts.zone = new Chart(document.getElementById('zoneChart'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(statistics['区域類型分布']),
+          datasets: [{
+            label: '自治体数',
+            data: Object.values(statistics['区域類型分布']),
+            backgroundColor: 'rgba(147, 51, 234, 0.7)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: '区域類型分布'
+            },
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+      
+      // 厳格度分布
+      charts.strictness = new Chart(document.getElementById('strictnessChart'), {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(statistics['厳格度_絶対分布']),
+          datasets: [{
+            data: Object.values(statistics['厳格度_絶対分布']),
+            backgroundColor: [
+              'rgba(220, 38, 38, 0.7)',
+              'rgba(234, 88, 12, 0.7)',
+              'rgba(250, 204, 21, 0.7)',
+              'rgba(34, 197, 94, 0.7)'
+            ]
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: '厳格度レベル分布'
+            },
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }
+      });
+      
+      // プロセス重視度分布
+      charts.process = new Chart(document.getElementById('processChart'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(statistics['プロセス重視度分布']),
+          datasets: [{
+            label: '自治体数',
+            data: Object.values(statistics['プロセス重視度分布']),
+            backgroundColor: 'rgba(249, 115, 22, 0.7)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: 'プロセス重視度分布'
+            },
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+      
+      // 散布図: 厳格度 vs 住民参加
+      const scatterData1 = municipalities.map(mun => {
+        const info = municipality_info[mun];
+        return {
+          x: info['厳格度スコア'],
+          y: info['住民参加スコア'],
+          label: mun
+        };
+      });
+      
+      charts.scatterStrictnessResident = new Chart(document.getElementById('scatterStrictnessResident'), {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: '自治体',
+            data: scatterData1,
+            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+            borderColor: 'rgba(59, 130, 246, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: '厳格度スコア vs 住民参加スコア'
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.raw.label + ': (' + 
+                    context.raw.x.toFixed(1) + ', ' + 
+                    context.raw.y.toFixed(1) + ')';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: '厳格度スコア'
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: '住民参加スコア'
+              }
+            }
+          }
+        }
+      });
+      
+      // 散布図: 厳格度 vs 手続き
+      const scatterData2 = municipalities.map(mun => {
+        const info = municipality_info[mun];
+        return {
+          x: info['厳格度スコア'],
+          y: info['手続きスコア'],
+          label: mun
+        };
+      });
+      
+      charts.scatterStrictnessProcedure = new Chart(document.getElementById('scatterStrictnessProcedure'), {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: '自治体',
+            data: scatterData2,
+            backgroundColor: 'rgba(245, 158, 11, 0.5)',
+            borderColor: 'rgba(245, 158, 11, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            title: {
+              display: true,
+              text: '厳格度スコア vs 手続きスコア'
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.raw.label + ': (' + 
+                    context.raw.x.toFixed(1) + ', ' + 
+                    context.raw.y.toFixed(1) + ')';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: '厳格度スコア'
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: '手続きスコア'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ローディング表示
+    function showLoading() {
+      const container = document.getElementById('paragraphs');
+      container.innerHTML = '<div class="loading">データを読み込んでいます...</div>';
+    }
+
+    // エラー表示
+    function showError(message) {
+      const container = document.getElementById('paragraphs');
+      container.innerHTML = `<div class="error">エラー: ${escapeHtml(message)}</div>`;
+    }
+
+    // ページ読み込み時に初期化
+    init();
+  </script>
+</body>
+</html>
