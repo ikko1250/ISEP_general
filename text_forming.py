@@ -1,8 +1,12 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import re
 import pandas as pd
 import os
 import glob
 import sys
+import argparse
 
 def format_text(text):
     """
@@ -100,11 +104,64 @@ def extract_metadata_from_filename(filename):
     
     return jichitai, kubun
 
+def get_available_years():
+    """利用可能な年別ディレクトリのリストを取得"""
+    years = set()
+    
+    # out_xxxx形式のディレクトリを検索
+    pattern = "out_*"
+    dirs = glob.glob(pattern)
+    for d in dirs:
+        if os.path.isdir(d):
+            match = re.search(r'out_(\d{4})$', d)
+            if match:
+                years.add(match.group(1))
+    
+    # out_txt_xxxx形式のディレクトリを検索
+    pattern = "out_txt_*"
+    dirs = glob.glob(pattern)
+    for d in dirs:
+        if os.path.isdir(d):
+            match = re.search(r'out_txt_(\d{4})$', d)
+            if match:
+                years.add(match.group(1))
+    
+    return sorted(list(years))
+
+def parse_year_range(year_input):
+    """年の範囲文字列を解析して年のリストを返す"""
+    if not year_input:
+        return []
+    
+    if '-' in year_input:
+        # 範囲指定（例: 2014-2018）
+        try:
+            start_year, end_year = year_input.split('-', 1)
+            start_year = int(start_year.strip())
+            end_year = int(end_year.strip())
+            if start_year > end_year:
+                print(f"エラー: 開始年（{start_year}）が終了年（{end_year}）より大きいです。")
+                sys.exit(1)
+            return [str(year) for year in range(start_year, end_year + 1)]
+        except ValueError:
+            print(f"エラー: 年の範囲指定が無効です: {year_input}")
+            print("正しい形式: YYYY-YYYY (例: 2014-2018)")
+            sys.exit(1)
+    else:
+        # 単年指定（例: 2015）
+        try:
+            year = int(year_input.strip())
+            return [str(year)]
+        except ValueError:
+            print(f"エラー: 年の指定が無効です: {year_input}")
+            print("正しい形式: YYYY または YYYY-YYYY (例: 2015 または 2014-2018)")
+            sys.exit(1)
+
 def extract_year_from_directory(directory):
     """
     ディレクトリ名から制定年を抽出する
     例: "out_2022" -> "2022"
-        "out_2023" -> "2023"
+        "out_txt_2023" -> "2023"
     
     Parameters:
     - directory: ディレクトリ名
@@ -117,6 +174,47 @@ def extract_year_from_directory(directory):
     if match:
         return match.group(1)
     return None
+
+def get_target_directories(years=None):
+    """
+    処理対象のディレクトリリストを取得
+    out_xxxx と out_txt_xxxx の両方を対象とする
+    
+    Parameters:
+    - years: 対象年のリスト。Noneの場合は全ての利用可能な年
+    
+    Returns:
+    - directories: 存在するディレクトリのリスト
+    """
+    if years is None:
+        years = get_available_years()
+    
+    directories = []
+    missing_years = []
+    
+    for year in years:
+        year_dirs = []
+        
+        # out_xxxx形式のディレクトリをチェック
+        out_dir = f"out_{year}"
+        if os.path.exists(out_dir) and os.path.isdir(out_dir):
+            year_dirs.append(out_dir)
+        
+        # out_txt_xxxx形式のディレクトリをチェック
+        out_txt_dir = f"out_txt_{year}"
+        if os.path.exists(out_txt_dir) and os.path.isdir(out_txt_dir):
+            year_dirs.append(out_txt_dir)
+        
+        if year_dirs:
+            directories.extend(year_dirs)
+        else:
+            missing_years.append(year)
+    
+    if missing_years:
+        print(f"警告: 以下の年のディレクトリが見つかりません: {', '.join(missing_years)}")
+        print("       対象ディレクトリ形式: out_YYYY, out_txt_YYYY")
+    
+    return directories
 
 def process_multiple_files(directories, output_csv):
     """
@@ -137,6 +235,9 @@ def process_multiple_files(directories, output_csv):
     error_count = 0
     duplicate_count = 0
     
+    # 処理済みファイルを記録するセット（ファイル名 + 制定年 + 区分の組み合わせ）
+    processed_files = set()
+    
     # 既存のCSVを読み込み（存在する場合）
     existing_df = None
     if os.path.exists(output_csv):
@@ -144,6 +245,10 @@ def process_multiple_files(directories, output_csv):
             existing_df = pd.read_csv(output_csv)
             if len(existing_df) > 0:
                 print(f"既存のCSVファイルを読み込みました: {len(existing_df)} 行")
+                # 既存のエントリーを処理済みセットに追加
+                for _, row in existing_df.iterrows():
+                    key = f"{row['自治体']}_{row['制定年']}_{row['区分']}"
+                    processed_files.add(key)
             else:
                 print("既存のCSVファイルは空です。新規作成します。")
                 existing_df = None
@@ -183,29 +288,17 @@ def process_multiple_files(directories, output_csv):
                 filename = os.path.basename(txt_file)
                 jichitai, kubun = extract_metadata_from_filename(filename)
                 
-                # 重複チェック（既存のCSVおよび今回追加するデータの両方）
-                is_duplicate = False
+                # 重複チェック用のキーを作成
+                key = f"{jichitai}_{seiteinen}_{kubun}"
                 
-                # 既存のCSVでチェック
-                if existing_df is not None:
-                    duplicate_rows = existing_df[(existing_df['自治体'] == jichitai) & 
-                                                (existing_df['制定年'] == seiteinen) & 
-                                                (existing_df['区分'] == kubun)]
-                    is_duplicate = len(duplicate_rows) > 0
-                
-                # 今回追加しようとしているデータ内でもチェック
-                if not is_duplicate and all_data:
-                    for existing_row in all_data:
-                        if (existing_row['自治体'] == jichitai and 
-                            existing_row['制定年'] == seiteinen and 
-                            existing_row['区分'] == kubun):
-                            is_duplicate = True
-                            break
-                
-                if is_duplicate:
+                # 重複チェック
+                if key in processed_files:
                     print(f"   ⚠️  重複スキップ: {filename} ({jichitai}, {seiteinen}, {kubun})")
                     duplicate_count += 1
                     continue  # 重複の場合はスキップ
+                
+                # 処理済みセットに追加
+                processed_files.add(key)
                 
                 # データを追加
                 row_data = {
@@ -249,43 +342,54 @@ def process_multiple_files(directories, output_csv):
     
     return success_count, error_count, duplicate_count
 
-def main():
+def main(year_input=None, output_csv=None):
     """メイン処理"""
     print("="*60)
-    print("複数テキストファイル整形ツール (CUI版)")
+    print("複数テキストファイル整形ツール")
     print("="*60)
     
     # デフォルトの設定
-    output_csv = 'main2.6.csv'
+    if output_csv is None:
+        output_csv = 'main2.6.csv'
     
-    # カレントディレクトリから年度別ディレクトリを自動検出
-    # out_YYYY形式のディレクトリを検索
-    all_dirs = [d for d in os.listdir('.') if os.path.isdir(d)]
-    year_dirs = [d for d in all_dirs if re.match(r'out_\d{4}', d)]
+    # 年の範囲または単年から処理対象を決定
+    if year_input:
+        years = parse_year_range(year_input)
+        print(f"指定された年: {', '.join(years)}")
+    else:
+        # デフォルトでは利用可能な全ての年を使用
+        available_years = get_available_years()
+        if available_years:
+            years = available_years
+            print(f"年が指定されていません。利用可能な全ての年を処理します: {', '.join(years)}")
+        else:
+            print("エラー: 処理対象のディレクトリが見つかりません。")
+            print("対象ディレクトリ形式: out_YYYY, out_txt_YYYY")
+            sys.exit(1)
     
-    if not year_dirs:
+    # 処理対象ディレクトリを取得
+    target_dirs = get_target_directories(years)
+    
+    if not target_dirs:
         print("⚠️  エラー: 処理対象のディレクトリが見つかりません")
-        print("   'out_YYYY' 形式のディレクトリを作成してください")
+        print("   'out_YYYY' または 'out_txt_YYYY' 形式のディレクトリを確認してください")
         sys.exit(1)
     
     # ディレクトリを表示
     print(f"\n検出されたディレクトリ:")
-    for directory in sorted(year_dirs):
+    for directory in sorted(target_dirs):
         year = extract_year_from_directory(directory)
         txt_count = len(glob.glob(os.path.join(directory, '*.txt')))
         print(f"  - {directory} (制定年: {year}, ファイル数: {txt_count})")
     
     # 確認
     print(f"\n出力先: {output_csv}")
-    response = input("\n処理を開始しますか? [y/N]: ").strip().lower()
-    
-    if response not in ['y', 'yes']:
-        print("処理をキャンセルしました")
-        sys.exit(0)
+    print(f"処理対象年: {', '.join(years)}")
+    print(f"処理ディレクトリ数: {len(target_dirs)}")
     
     # 処理を実行
     print("\n処理を開始します...\n")
-    success_count, error_count, duplicate_count = process_multiple_files(year_dirs, output_csv)
+    success_count, error_count, duplicate_count = process_multiple_files(target_dirs, output_csv)
     
     # 終了
     if error_count > 0:
@@ -294,8 +398,45 @@ def main():
         sys.exit(0)
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="複数テキストファイル整形ツール - out_xxxx と out_txt_xxxx ディレクトリを処理",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用例:
+  python text_forming.py                       # デフォルト（全ての利用可能な年）
+  python text_forming.py --year 2014           # out_2014 と out_txt_2014 を処理
+  python text_forming.py -y 2015               # out_2015 と out_txt_2015 を処理
+  python text_forming.py --year 2014-2018      # 2014年から2018年まで順次処理
+  python text_forming.py -y 2016-2017          # 2016年と2017年を処理
+  python text_forming.py --list-years          # 利用可能な年のリストを表示
+  python text_forming.py --output custom.csv   # 出力ファイル名を指定
+        """
+    )
+    parser.add_argument("--year", "-y", type=str, help="処理対象の年（例: 2014, 2015, 2014-2018）")
+    parser.add_argument("--output", "-o", type=str, default="main2.6.csv", help="出力CSVファイル名（デフォルト: main2.6.csv）")
+    parser.add_argument("--list-years", "-l", action="store_true", help="利用可能な年のリストを表示")
+    
+    args = parser.parse_args()
+    
+    if args.list_years:
+        available_years = get_available_years()
+        if available_years:
+            print("利用可能な年:")
+            for year in available_years:
+                out_dir = f"out_{year}"
+                out_txt_dir = f"out_txt_{year}"
+                
+                out_exists = "✓" if os.path.exists(out_dir) else "✗"
+                out_txt_exists = "✓" if os.path.exists(out_txt_dir) else "✗"
+                
+                print(f"  {year}: out_{year} {out_exists}  out_txt_{year} {out_txt_exists}")
+        else:
+            print("年別ディレクトリが見つかりません。")
+            print("対象ディレクトリ形式: out_YYYY, out_txt_YYYY")
+        sys.exit(0)
+    
     try:
-        main()
+        main(year_input=args.year, output_csv=args.output)
     except KeyboardInterrupt:
         print("\n\n処理が中断されました")
         sys.exit(1)

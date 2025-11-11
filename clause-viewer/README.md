@@ -4,7 +4,72 @@
 
 ## 📋 概要
 
-このビューアは、53自治体の太陽光発電規制条例を以下の観点から分析・可視化します:
+# Clause Viewer - データ管理システム
+
+このシステムは、太陽光発電に関する条例のテキストデータを分析し、可視化するためのデータパイプラインです。
+CSV形式の分析元データをSQLiteデータベースに集約し、最終的にWebフロントエンド(`viewer-advanced.html`)が表示するための`data-integrated.json`を生成します。
+
+## データ更新手順
+
+データソースとなるCSVファイルが更新された場合、以下のコマンド一つで全てのデータを再生成できます。
+
+```bash
+# clause-viewerディレクトリで実行
+python3 update_data.py
+```
+
+このコマンドは、以下の3つのスクリプトを順番に実行します。
+1.  **データベースの初期化**: `setup_database.py`
+2.  **CSVデータのインポート**: `import_csv_to_sqlite.py`
+3.  **JSONファイルのエクスポート**: `export_sqlite_to_json.py`
+
+---
+
+## 個別スクリプトの実行
+
+特定のステップのみを実行したい場合は、各スクリプトを直接実行することも可能です。
+
+### 1. データベースのセットアップ (初回のみ)
+データベース構造を変更した場合や、完全にクリーンな状態から始めたい場合に実行します。
+**注意:** 既存のデータベースは削除されます。
+
+```bash
+python3 setup_database.py
+```
+
+### 2. CSVデータのインポート
+データベースはそのままに、CSVデータのみを再インポートしたい場合に実行します。
+
+```bash
+python3 import_csv_to_sqlite.py
+```
+
+### 3. JSONのエクスポート
+データベースの内容を変更せず、JSONファイルのみを再生成したい場合に実行します。
+
+```bash
+python3 export_sqlite_to_json.py
+```
+
+---
+
+## ファイル構成
+
+-   `clause_data.db`:
+    -   全てのデータが集約されているSQLiteデータベースファイル。
+-   `data-integrated.json`:
+    -   `viewer-advanced.html`が直接読み込むためのJSONファイル。`update_data.py`によって自動生成されます。
+-   `*.py`:
+    -   上記のデータ処理を行うためのPythonスクリプト群。
+
+## データソース
+
+このシステムが参照するCSVファイルは以下の通りです。
+
+-   `/home/ubuntu/cur/isep/main4.3.csv`
+-   `/home/ubuntu/cur/isep/munic._coding.v.4.csv`
+-   `/home/ubuntu/cur/isep/result_solar_rule_v1.1.csv`
+
 
 - **規制タイプ**: 許可制優位・届出制優位・混合型
 - **区域類型**: 禁止地区制・抑制地区制・2層構造・区域設定なし

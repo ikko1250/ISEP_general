@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>条例テキストビューア - 統合分析版</title>
+  <link rel="icon" href="data:," />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
   <style>
     :root {
@@ -792,7 +793,8 @@ body {
   </div>
 
   <script>
-    let allData = {};
+    let indexData = {};
+    let allParagraphs = []; // 現在読み込んでいる自治体の段落データ
     let municipalities = [];
     let codingTypes = [];
     let municipalityInfo = {};
@@ -807,36 +809,50 @@ body {
     let charts = {};
 
     // データ取得
-    async function fetchData() {
-      const response = await fetch('data-integrated.json?t=' + new Date().getTime());
+    async function fetchIndexData() {
+      const response = await fetch('data/index.json?t=' + new Date().getTime());
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       return await response.json();
     }
 
+    async function fetchMunicipalityData(municipalityName) {
+      if (!municipalityName) {
+        allParagraphs = [];
+        return [];
+      }
+      const response = await fetch(`data/municipalities/${encodeURIComponent(municipalityName)}.json?t=${new Date().getTime()}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      allParagraphs = Array.isArray(data) ? data : (data.paragraphs || []);
+      return allParagraphs;
+    }
+
     // 初期化
     async function init() {
       try {
-        showLoading();
-        allData = await fetchData();
+        showLoading('インデックスを読み込んでいます...');
+        indexData = await fetchIndexData();
         
         // グローバル変数を設定
-        municipalities = allData.municipalities || [];
-        coding_types = allData.coding_types || [];
-        municipality_info = allData.municipality_info || {};
-        statistics = allData.statistics || {};
+        municipalities = indexData.municipalities || [];
+        codingTypes = indexData.coding_types || [];
+        municipalityInfo = indexData.municipality_info || {};
+        statistics = indexData.statistics || {};
         
         initializeUI();
-        updateDisplay();
+        updateDisplay(); // 初期状態では何も表示しない
         setupEventListeners();
         setupTabSwitching();
         
       } catch (error) {
         console.error('初期化エラー:', error);
-        showError('データの読み込みに失敗しました。ファイルが存在するか確認してください。');
+        showError('データの読み込みに失敗しました。data/index.json が存在するか確認してください。');
       } finally {
-        // ローディング表示を消す（もしあれば）
+        // ローディング表示を消す
         const loadingEl = document.querySelector('.loading');
         if (loadingEl) loadingEl.remove();
       }
@@ -859,7 +875,7 @@ body {
       // コーディングボタンを生成
       const codingContainer = document.getElementById('codings');
       codingContainer.innerHTML = ''; // Clear existing
-      coding_types.forEach(code => {
+      codingTypes.forEach(code => {
         const btn = document.createElement('button');
         btn.textContent = code;
         btn.className = 'filter-btn';
@@ -957,18 +973,31 @@ body {
     }
 
     // 自治体を選択
-    function selectMunicipality(mun, btnElement) {
+    async function selectMunicipality(mun, btnElement) {
       if (selectedMunicipality === mun) {
         selectedMunicipality = null;
+        allParagraphs = [];
         btnElement.classList.remove('selected');
+        updateDisplay();
       } else {
         document.querySelectorAll('[data-municipality].selected').forEach(b => {
           b.classList.remove('selected');
         });
         selectedMunicipality = mun;
         btnElement.classList.add('selected');
+        
+        try {
+          showLoading(`「${mun}」のデータを読み込んでいます...`);
+          await fetchMunicipalityData(mun); // この処理が終わるのを待つ
+          updateDisplay(); // 待った後に、表示を更新する
+        } catch (error) {
+          console.error(`自治体データ読込エラー (${mun}):`, error);
+          showError(`「${mun}」のデータの読み込みに失敗しました。`);
+        } finally {
+           const loadingEl = document.querySelector('.loading');
+           if (loadingEl) loadingEl.remove();
+        }
       }
-      updateDisplay();
     }
 
     // コーディングを選択/解除
@@ -987,6 +1016,7 @@ body {
     // フィルタをリセット
     function resetFilters() {
       selectedMunicipality = null;
+      allParagraphs = [];
       selectedCodes = [];
       selectedRegulationType = null;
       selectedZoneType = null;
@@ -1002,33 +1032,61 @@ body {
 
     // 表示を更新
     function updateDisplay() {
+      // 分析フィルタが選択されている場合は、まず自治体リストをフィルタリング
+      if (selectedRegulationType || selectedZoneType || selectedStrictnessLevel || selectedProcessType) {
+        filterAndDisplayMunicipalities();
+      } else {
+        // そうでなければ、すべての自治体ボタンを表示
+        document.querySelectorAll('#municipalities .filter-btn').forEach(btn => {
+            btn.style.display = '';
+        });
+      }
+
       const filtered = filterParagraphs();
       displayParagraphs(filtered);
     }
 
-    // 段落をフィルタリング
-    function filterParagraphs() {
-      let filtered = allData.paragraphs || [];
-      
-      // 自治体でフィルタ
-      if (selectedMunicipality) {
-        filtered = filtered.filter(p => p.municipality === selectedMunicipality);
-      }
-      
-      // 分析フィルタでフィルタ
-      if (selectedRegulationType || selectedZoneType || selectedStrictnessLevel || selectedProcessType) {
-        // 該当自治体のリストを取得
-        const validMunicipalities = Object.keys(municipality_info).filter(mun => {
-          const info = municipality_info[mun];
-          if (selectedRegulationType && info['規制タイプ'] !== selectedRegulationType) return false;
-          if (selectedZoneType && info['区域類型'] !== selectedZoneType) return false;
-          if (selectedStrictnessLevel && info['厳格度_絶対'] !== selectedStrictnessLevel) return false;
-          if (selectedProcessType && info['プロセス重視度'] !== selectedProcessType) return false;
+    function filterAndDisplayMunicipalities() {
+        const validMunicipalities = Object.keys(municipalityInfo).filter(mun => {
+          const info = municipalityInfo[mun];
+          if (!info) return false;
+          if (selectedRegulationType && info?.regulation_type !== selectedRegulationType) return false;
+          if (selectedZoneType && info?.area_type !== selectedZoneType) return false;
+          if (selectedStrictnessLevel && info?.strictness_absolute !== selectedStrictnessLevel) return false;
+          if (selectedProcessType && info?.process_emphasis !== selectedProcessType) return false;
           return true;
         });
-        
-        filtered = filtered.filter(p => validMunicipalities.includes(p.municipality));
+
+        const validMunSet = new Set(validMunicipalities);
+
+        document.querySelectorAll('#municipalities .filter-btn').forEach(btn => {
+            const mun = btn.dataset.municipality;
+            if (validMunSet.has(mun)) {
+                btn.style.display = '';
+            } else {
+                btn.style.display = 'none';
+            }
+        });
+
+        // 選択中の自治体がフィルタ外になった場合、選択を解除
+        if (selectedMunicipality && !validMunSet.has(selectedMunicipality)) {
+            selectedMunicipality = null;
+            allParagraphs = [];
+            document.querySelectorAll('[data-municipality].selected').forEach(b => {
+                b.classList.remove('selected');
+            });
+        }
+    }
+
+
+    // 段落をフィルタリング
+    function filterParagraphs() {
+      // 自治体が選択されていない場合は何も表示しない
+      if (!selectedMunicipality) {
+        return [];
       }
+      
+      let filtered = allParagraphs;
       
       // コーディングでフィルタ（AND条件）
       if (selectedCodes.length > 0) {
@@ -1049,6 +1107,8 @@ body {
       let statsText = `表示件数: ${paragraphs.length}件`;
       if (selectedMunicipality) {
         statsText += ` | 自治体: ${selectedMunicipality}`;
+      } else {
+        statsText = '自治体を選択してください。';
       }
       if (selectedRegulationType) {
         statsText += ` | 規制: ${selectedRegulationType}`;
@@ -1069,6 +1129,14 @@ body {
       
       container.innerHTML = '';
       
+      if (!selectedMunicipality) {
+        const noResults = document.createElement('div');
+        noResults.className = 'no-results';
+        noResults.textContent = '左のメニューから自治体を選択してください。';
+        container.appendChild(noResults);
+        return;
+      }
+
       if (paragraphs.length === 0) {
         const noResults = document.createElement('div');
         noResults.className = 'no-results';
@@ -1085,7 +1153,8 @@ body {
         const header = document.createElement('div');
         header.className = 'paragraph-header';
         const codes = para.codes && para.codes.length > 0 ? para.codes.join(', ') : 'コーディングなし';
-        header.textContent = `[${para.h5}-${para.dan}] コーディング: ${codes}`;
+        const danNumber = para.dan_number ?? para.dan ?? '-';
+        header.textContent = `[${para.h5}-${danNumber}] コーディング: ${codes}`;
         card.appendChild(header);
         
         // メタ情報
@@ -1112,48 +1181,52 @@ body {
         card.appendChild(meta);
         
         // 分析バッジを追加
-        const munInfo = municipality_info[para.municipality];
+        const munInfo = municipalityInfo[para.municipality];
         if (munInfo) {
           const analysisBadges = document.createElement('div');
           analysisBadges.className = 'analysis-badges';
           
-          // 規制タイプ
+          const regulationValue = munInfo.regulation_type || '未設定';
           const regBadge = createEditableBadge(
             'badge regulation-type',
-            munInfo['規制タイプ'],
+            regulationValue,
             para.municipality,
-            '規制タイプ',
-            Object.keys(statistics['規制タイプ分布'] || {})
+            'regulation_type',
+            Object.keys(statistics['規制タイプ分布'] || {}),
+            '規制タイプ'
           );
           analysisBadges.appendChild(regBadge);
           
-          // 区域類型
+          const zoneValue = munInfo.area_type || '未設定';
           const zoneBadge = createEditableBadge(
             'badge zone-type',
-            munInfo['区域類型'],
+            zoneValue,
             para.municipality,
-            '区域類型',
-            Object.keys(statistics['区域類型分布'] || {})
+            'area_type',
+            Object.keys(statistics['区域類型分布'] || {}),
+            '区域類型'
           );
           analysisBadges.appendChild(zoneBadge);
           
-          // 厳格度
+          const strictnessValue = munInfo.strictness_absolute || '未設定';
           const strictBadge = createEditableBadge(
-            'badge strictness ' + getStrictnessClass(munInfo['厳格度_絶対']),
-            `厳格度: ${munInfo['厳格度_絶対']}`,
+            'badge strictness ' + getStrictnessClass(strictnessValue),
+            `厳格度: ${strictnessValue}`,
             para.municipality,
-            '厳格度_絶対',
-            ['非常に厳格', '厳格', '標準', '緩やか']
+            'strictness_absolute',
+            ['非常に厳格', '厳格', '標準', '緩やか'],
+            '厳格度レベル'
           );
           analysisBadges.appendChild(strictBadge);
           
-          // プロセス重視度
+          const processValue = munInfo.process_emphasis || '未設定';
           const procBadge = createEditableBadge(
             'badge process',
-            munInfo['プロセス重視度'],
+            processValue,
             para.municipality,
-            'プロセス重視度',
-            Object.keys(statistics['プロセス重視度分布'] || {})
+            'process_emphasis',
+            Object.keys(statistics['プロセス重視度分布'] || {}),
+            'プロセス重視度'
           );
           analysisBadges.appendChild(procBadge);
           
@@ -1177,8 +1250,8 @@ body {
         const badge = e.target.closest('.editable');
         if (badge) {
           e.stopPropagation();
-          const { municipality, field, options } = badge.dataset;
-          showEditDropdown(badge, municipality, field, JSON.parse(options));
+          const { municipality, field, options, label } = badge.dataset;
+          showEditDropdown(badge, municipality, field, JSON.parse(options), label || field);
         }
       });
     }
@@ -1194,7 +1267,7 @@ body {
     }
 
     // 編集可能なバッジを作成
-    function createEditableBadge(className, text, municipality, field, options) {
+    function createEditableBadge(className, text, municipality, field, options, displayLabel) {
       const badge = document.createElement('span');
       badge.className = className + ' editable';
       badge.textContent = text;
@@ -1203,20 +1276,23 @@ body {
       badge.dataset.municipality = municipality;
       badge.dataset.field = field;
       badge.dataset.options = JSON.stringify(options);
+      if (displayLabel) {
+        badge.dataset.label = displayLabel;
+      }
       
       return badge;
     }
 
     // 編集ドロップダウンを表示
-    function showEditDropdown(badgeElement, municipality, field, options) {
+    function showEditDropdown(badgeElement, municipality, field, options, displayLabel) {
       // デバッグ情報
-      console.log('showEditDropdown called:', { municipality, field, options, currentValue: municipality_info[municipality]?.[field] });
+      console.log('showEditDropdown called:', { municipality, field, options, currentValue: municipalityInfo[municipality]?.[field] });
       
       // 既存のドロップダウンを閉じる
       document.querySelectorAll('.edit-dropdown').forEach(d => d.remove());
       
       // バリデーション
-      if (!municipality_info[municipality]) {
+      if (!municipalityInfo[municipality]) {
         console.error(`Municipality not found: ${municipality}`);
         showToast(`自治体情報が見つかりません: ${municipality}`, 'error');
         return;
@@ -1237,11 +1313,12 @@ body {
       });
       
       const label = document.createElement('label');
-      label.textContent = `${field}を編集:`;
+      const labelText = displayLabel || field;
+      label.textContent = `${labelText}を編集:`;
       dropdown.appendChild(label);
       
       const select = document.createElement('select');
-      const currentValue = municipality_info[municipality][field];
+      const currentValue = municipalityInfo[municipality][field];
       
       console.log('Creating select options:', options);
       
@@ -1275,7 +1352,7 @@ body {
         e.stopPropagation();
         const newValue = select.value;
         console.log('Save clicked:', { municipality, field, newValue });
-        saveMunicipalityEdit(municipality, field, newValue, badgeElement);
+        saveMunicipalityEdit(municipality, field, newValue, badgeElement, labelText);
         dropdown.remove();
       });
       buttons.appendChild(saveBtn);
@@ -1306,14 +1383,20 @@ body {
     }
 
     // 自治体情報の編集を保存
-    async function saveMunicipalityEdit(municipality, field, newValue, badgeElement) {
+    async function saveMunicipalityEdit(municipality, field, newValue, badgeElement, displayLabel = null) {
+      let oldValue = null;
       try {
-        // メモリ内のデータを更新
-        const oldValue = municipality_info[municipality][field];
-        municipality_info[municipality][field] = newValue;
-        
-        // data-integrated.json を更新
-        allData.municipality_info = municipality_info;
+        const info = municipalityInfo[municipality];
+        if (!info) {
+          showToast(`自治体情報が見つかりません: ${municipality}`, 'error');
+          return;
+        }
+
+        oldValue = info[field];
+        info[field] = newValue;
+        indexData.municipality_info = municipalityInfo;
+
+        const labelText = displayLabel || field;
         
         // サーバーに保存リクエストを送信(PHPサーバーがある場合)
         try {
@@ -1333,45 +1416,38 @@ body {
             const result = await response.json();
             if (result.success) {
               updateBadgeDisplay(badgeElement, field, newValue);
-              showToast(`${municipality}の${field}を更新しました (バックアップ: ${result.backup})`, 'success');
-              updateDisplay();
+              showToast(`${municipality}の${labelText}を更新しました (バックアップ: ${result.backup})`, 'success');
               return;
             }
           }
         } catch (fetchError) {
-          // PHPサーバーがない場合は次の処理へ
           console.log('PHPサーバーが利用できません。ダウンロード機能を使用してください。');
         }
-        
-        // PHPが使えない場合はダウンロード機能を提供
+
         updateBadgeDisplay(badgeElement, field, newValue);
-        
+
         showToast(
-          `${municipality}の${field}を「${oldValue}」から「${newValue}」に更新しました。\n「JSONダウンロード」ボタンで保存してください。`, 
+          `${municipality}の${labelText}を「${oldValue ?? '未設定'}」から「${newValue}」に更新しました。\n「JSONダウンロード」ボタンで保存してください。`,
           'warning'
         );
-        
-        // ダウンロードボタンを表示
+
         showDownloadButton();
-        updateDisplay();
-        
+
       } catch (error) {
         console.error('保存エラー:', error);
-        
-        // エラー時はロールバック
-        municipality_info[municipality][field] = oldValue;
-        
+        if (municipalityInfo[municipality]) {
+          municipalityInfo[municipality][field] = oldValue;
+        }
         showToast('編集の保存に失敗しました', 'error');
       }
     }
 
     // バッジ表示を更新
     function updateBadgeDisplay(badgeElement, field, newValue) {
-      const displayText = field === '厳格度_絶対' ? `厳格度: ${newValue}` : newValue;
+      const displayText = field === 'strictness_absolute' ? `厳格度: ${newValue}` : newValue;
       badgeElement.textContent = displayText;
       
-      // 厳格度の場合、クラスも更新
-      if (field === '厳格度_絶対') {
+      if (field === 'strictness_absolute') {
         badgeElement.className = badgeElement.className.replace(/very-strict|strict|standard|lenient/g, '');
         badgeElement.className += ' ' + getStrictnessClass(newValue);
       }
@@ -1432,19 +1508,20 @@ body {
 
     // JSONをダウンロード
     function downloadJSON() {
-      const jsonStr = JSON.stringify(allData, null, 2);
+      // index.jsonをダウンロードする
+      const jsonStr = JSON.stringify(indexData, null, 2);
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       
       const a = document.createElement('a');
       a.href = url;
-      a.download = `data-integrated_edited_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`;
+      a.download = `index_edited_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      showToast('JSONファイルをダウンロードしました。data-integrated.jsonと置き換えてください。', 'success');
+      showToast('index.jsonファイルをダウンロードしました。元のファイルと置き換えてください。', 'success');
     }
 
     // トースト通知を表示
@@ -1683,7 +1760,7 @@ body {
       
       const stats = [
         { label: '自治体数', value: municipalities.length },
-        { label: '段落数', value: allData.paragraphs.length },
+        { label: '段落総数', value: statistics['総段落数'] },
         { label: 'コーディング種類', value: codingTypes.length },
         { label: '平均厳格度スコア', value: statistics['厳格度スコア統計']['平均'].toFixed(1) },
         { label: '平均住民参加スコア', value: statistics['住民参加スコア統計']['平均'].toFixed(1) },
@@ -1831,7 +1908,7 @@ body {
       
       // 散布図: 厳格度 vs 住民参加
       const scatterData1 = municipalities.map(mun => {
-        const info = municipality_info[mun];
+        const info = municipalityInfo[mun];
         return {
           x: info['厳格度スコア'],
           y: info['住民参加スコア'],
@@ -1887,7 +1964,7 @@ body {
       
       // 散布図: 厳格度 vs 手続き
       const scatterData2 = municipalities.map(mun => {
-        const info = municipality_info[mun];
+        const info = municipalityInfo[mun];
         return {
           x: info['厳格度スコア'],
           y: info['手続きスコア'],
@@ -1943,9 +2020,9 @@ body {
     }
 
     // ローディング表示
-    function showLoading() {
+    function showLoading(message = 'データを読み込んでいます...') {
       const container = document.getElementById('paragraphs');
-      container.innerHTML = '<div class="loading">データを読み込んでいます...</div>';
+      container.innerHTML = `<div class="loading">${escapeHtml(message)}</div>`;
     }
 
     // エラー表示

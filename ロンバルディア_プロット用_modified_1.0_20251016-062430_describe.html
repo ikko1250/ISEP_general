@@ -1,0 +1,232 @@
+
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="utf-8" />
+        <title>describe レポート</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, Arial, sans-serif; margin: 24px; }
+            h1 { margin-bottom: 8px; }
+            .path { color: #666; font-size: 0.9em; margin-bottom: 24px; }
+            table.data { border-collapse: collapse; width: 100%; margin: 12px 0; }
+            table.data th, table.data td { border: 1px solid #ddd; padding: 6px 8px; text-align: right; }
+            table.data th { background: #f7f7f7; text-align: center; }
+            .note { color: #666; font-size: 0.9em; }
+        </style>
+    </head>
+    <body>
+        <h1>describe レポート</h1>
+        <div class="path">CSV: /home/ubuntu/cur/program/Analyisis_incineration/EU/ロンバルディア_プロット用_modified_1.0.csv</div>
+
+        <h2>数値列の基本統計</h2>
+        <table class="dataframe data">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>count</th>
+      <th>mean</th>
+      <th>std</th>
+      <th>min</th>
+      <th>25%</th>
+      <th>50%</th>
+      <th>75%</th>
+      <th>max</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>焼却場名</th>
+      <td>0.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>国</th>
+      <td>0.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>州</th>
+      <td>0.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>自治体</th>
+      <td>0.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>処理能力(t/day)</th>
+      <td>10.0</td>
+      <td>831.924000</td>
+      <td>711.679457</td>
+      <td>276.000</td>
+      <td>374.0000</td>
+      <td>471.5000</td>
+      <td>1299.500</td>
+      <td>2200.00</td>
+    </tr>
+    <tr>
+      <th>認可処理能力(t/year)</th>
+      <td>10.0</td>
+      <td>251511.300000</td>
+      <td>232839.952770</td>
+      <td>87000.000</td>
+      <td>108500.0000</td>
+      <td>135186.5000</td>
+      <td>333750.000</td>
+      <td>810000.00</td>
+    </tr>
+    <tr>
+      <th>蒸気圧力(MPa)</th>
+      <td>10.0</td>
+      <td>4.860000</td>
+      <td>1.550054</td>
+      <td>2.500</td>
+      <td>4.0000</td>
+      <td>4.1000</td>
+      <td>6.325</td>
+      <td>7.00</td>
+    </tr>
+    <tr>
+      <th>蒸気温度(℃)</th>
+      <td>9.0</td>
+      <td>409.444444</td>
+      <td>30.356676</td>
+      <td>370.000</td>
+      <td>380.0000</td>
+      <td>415.0000</td>
+      <td>430.000</td>
+      <td>460.00</td>
+    </tr>
+    <tr>
+      <th>発電機定格容量(MVA)</th>
+      <td>5.0</td>
+      <td>29.651400</td>
+      <td>26.569337</td>
+      <td>11.000</td>
+      <td>16.0470</td>
+      <td>19.7000</td>
+      <td>25.250</td>
+      <td>76.26</td>
+    </tr>
+    <tr>
+      <th>発電機定格容量(MW)</th>
+      <td>10.0</td>
+      <td>28.658700</td>
+      <td>28.463564</td>
+      <td>6.000</td>
+      <td>8.9375</td>
+      <td>14.1685</td>
+      <td>49.300</td>
+      <td>85.00</td>
+    </tr>
+    <tr>
+      <th>年間処理量(t/year)</th>
+      <td>10.0</td>
+      <td>166760.223800</td>
+      <td>146559.260256</td>
+      <td>62574.000</td>
+      <td>82101.8300</td>
+      <td>111827.3990</td>
+      <td>194145.250</td>
+      <td>553476.00</td>
+    </tr>
+    <tr>
+      <th>発電量実績(MWh/year)</th>
+      <td>10.0</td>
+      <td>160134.435100</td>
+      <td>180552.138573</td>
+      <td>20826.000</td>
+      <td>39595.2500</td>
+      <td>92470.1755</td>
+      <td>180481.500</td>
+      <td>558000.00</td>
+    </tr>
+    <tr>
+      <th>熱供給量実績(MWh/year)</th>
+      <td>10.0</td>
+      <td>142874.000000</td>
+      <td>272191.951237</td>
+      <td>0.000</td>
+      <td>0.0000</td>
+      <td>18133.5000</td>
+      <td>72125.250</td>
+      <td>810000.00</td>
+    </tr>
+    <tr>
+      <th>実績年度</th>
+      <td>10.0</td>
+      <td>2021.500000</td>
+      <td>0.707107</td>
+      <td>2021.000</td>
+      <td>2021.0000</td>
+      <td>2021.0000</td>
+      <td>2022.000</td>
+      <td>2023.00</td>
+    </tr>
+    <tr>
+      <th>R1係数</th>
+      <td>9.0</td>
+      <td>0.868000</td>
+      <td>0.229843</td>
+      <td>0.622</td>
+      <td>0.7400</td>
+      <td>0.8120</td>
+      <td>0.894</td>
+      <td>1.42</td>
+    </tr>
+    <tr>
+      <th>低位発熱量(KJ/kg)</th>
+      <td>8.0</td>
+      <td>11734.862500</td>
+      <td>1695.238755</td>
+      <td>9650.000</td>
+      <td>10682.5000</td>
+      <td>11267.5000</td>
+      <td>12945.425</td>
+      <td>14100.00</td>
+    </tr>
+    <tr>
+      <th>備考</th>
+      <td>0.0</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+
+        
+
+        <p class="note">本レポートは pandas.DataFrame.describe() に基づいて自動生成されています。</p>
+    </body>
+    </html>
+    
