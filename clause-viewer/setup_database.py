@@ -7,7 +7,7 @@ def setup_database():
     データベースファイルとテーブルを作成します。
     """
     db_dir = Path('/home/ubuntu/cur/isep/clause-viewer')
-    db_path = db_dir / 'clause_data.db'
+    db_path = db_dir / 'clause_data2.db'
     
     # ディレクトリが存在しない場合は作成
     db_dir.mkdir(exist_ok=True)

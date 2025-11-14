@@ -3,20 +3,20 @@ import sqlite3
 from pathlib import Path
 
 DB_PATH = Path('clause-viewer/clause_data.db')
-OUT_CSV = Path('clause-viewer/mixed_regulation_positive_permission_paragraphs.csv')
+OUT_CSV = Path('clause-viewer/stakeholder_confirmation_paragraphs.csv')
 
 
 def main():
     con = sqlite3.connect(DB_PATH)
     cur = con.cursor()
 
-    # Get coding_type_id for *CLAUSE_POSITIVE_PERMISSION_CONSENT
+    # Get coding_type_id for *CLAUSE_STAKEHOLDER_CONFIRMATION
     cur.execute(
-        "SELECT id FROM coding_types WHERE code = '*CLAUSE_POSITIVE_PERMISSION_CONSENT'"
+        "SELECT id FROM coding_types WHERE code = '*CLAUSE_STAKEHOLDER_CONFIRMATION'"
     )
     row = cur.fetchone()
     if not row:
-        raise SystemExit('Coding type *CLAUSE_POSITIVE_PERMISSION_CONSENT not found')
+        raise SystemExit('Coding type *CLAUSE_STAKEHOLDER_CONFIRMATION not found')
     coding_id = row[0]
 
     # Query paragraphs for mixed-type municipalities with the coding present
@@ -33,8 +33,8 @@ def main():
         FROM paragraphs p
         JOIN municipalities m ON m.id = p.municipality_id
         JOIN paragraph_codings pc ON pc.paragraph_id = p.id
-        WHERE m.regulation_type = '混合型'
-          AND pc.coding_type_id = ?
+        WHERE pc.coding_type_id = ?
+        -- AND m.regulation_type = '混合型'  -- フィルターを外すためコメントアウト（全自治体を対象）
         ORDER BY m.id, p.id
         """
     )
@@ -63,4 +63,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

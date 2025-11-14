@@ -5,9 +5,9 @@ from tqdm import tqdm
 
 # --- 設定 ---
 BASE_DIR = Path('/home/ubuntu/cur/isep')
-DB_PATH = BASE_DIR / 'clause-viewer/clause_data.db'
-MAIN_CSV_PATH = BASE_DIR / 'main4.3.csv'
-CODING_CSV_PATH = BASE_DIR / 'munic._coding.v.4.csv'
+DB_PATH = BASE_DIR / 'clause-viewer/clause_data2.db'
+MAIN_CSV_PATH = BASE_DIR / 'main5.csv'
+CODING_CSV_PATH = BASE_DIR / 'v5_dan_vs_munic._table.csv'
 ANALYSIS_CSV_PATH = BASE_DIR / 'result_solar_rule_v1.1.csv'
 
 def import_municipalities(conn):

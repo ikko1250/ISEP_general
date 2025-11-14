@@ -19,7 +19,11 @@ except Exception:
 
 # PDF text extractors
 from pdfminer.high_level import extract_text as pdf_extract_text
-import fitz  # PyMuPDF
+try:
+    import fitz  # PyMuPDF
+    HAS_FITZ = True
+except Exception:
+    HAS_FITZ = False
 
 # デフォルトの出力ディレクトリ（後でmainで年に基づいて更新）
 OUT_DIR = Path("out_2020")
@@ -80,6 +84,203 @@ def normalize_text(txt: str) -> str:
     txt = re.sub(r"\n{3,}", "\n\n", txt)
     return txt.strip()
 
+def cleanup_extracted_text(text: str, url: str = "") -> str:
+    """Remove common noise blocks like TOC and internal IDs from ordinance pages.
+    Heuristics target g-reiki style pages but are safe generically.
+    """
+    lines = [ln.rstrip() for ln in text.splitlines()]
+    # Drop trailing sections starting at known markers
+    markers = {"条項目次", "体系情報", "沿革情報"}
+    cut_idx = None
+    for i, ln in enumerate(lines):
+        s = ln.strip()
+        if s in markers:
+            cut_idx = i
+            break
+    if cut_idx is not None:
+        lines = lines[:cut_idx]
+
+    # Remove internal ID-like lines e.g., e000000123
+    id_re = re.compile(r"^[A-Za-z]\d{6,}$")
+    lines = [ln for ln in lines if not id_re.match(ln.strip())]
+
+    # Merge common split lines caused by inline markup/newlines
+    def merge_splits(ls):
+        out = []
+        i = 0
+        changed = False
+        # Patterns
+        art_header_re = re.compile(r"^\s*第[〇一二三四五六七八九十百千万0-9]+条\s*$")
+        enum_paren_re = re.compile(r"^\s*[（(][0-9０-９一二三四五六七八九十]+[)）]\s*$")
+        enum_numsolo_re = re.compile(r"^\s*[0-9０-９]+\s*$")
+        enum_kata_solo_re = re.compile(r"^\s*[アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンイロハニホヘトチリヌルヲ]\s*$")
+        enum_kata_end_re = re.compile(r"[アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン]$")
+        cross_ref_head_re = re.compile(
+            r"^(?:同条|次条|本条|条例|規則)?第[0-9０-９〇一二三四五六七八九十百千万]+(条|項|号)"
+            r"|^(?:前条|前項|同条|同項|各条|各項)\b"
+        )
+        token_solo_re = re.compile(r"^\s*(前項|同項|前条|同条)\s*$")
+        paren_block_re = re.compile(r"^\s*[（(].*[)）]\s*$")
+        lone_open_re = re.compile(r"^\s*[（(]\s*$")
+        lone_close_re = re.compile(r"^\s*[)）]\s*$")
+        cjk_solo_re = re.compile(r"^\s*[\u4E00-\u9FFF]\s*$")
+        eos_punct = set("。．.？！!？」』)）]")
+        while i < len(ls):
+            cur = ls[i]
+            nxt = ls[i+1] if i+1 < len(ls) else None
+            prv = out[-1] if out else None
+            # Join article header line with next
+            if nxt and art_header_re.match(cur) and nxt.strip():
+                out.append(cur.strip() + " " + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # Join standalone enumerator like (1) with next
+            if nxt and enum_paren_re.match(cur) and nxt.strip():
+                out.append(cur.strip() + " " + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # Join standalone paragraph number like "2" with next
+            if nxt and enum_numsolo_re.match(cur) and nxt.strip():
+                out.append(cur.strip() + " " + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # Join standalone katakana enumerator like "ア" with next
+            if nxt and enum_kata_solo_re.match(cur) and nxt.strip():
+                out.append(cur.strip() + " " + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # Join cross-reference breaks: prev … 条例\n第11条 / … 同条\n第1項 など
+            if nxt and cross_ref_head_re.match(nxt.strip()):
+                if cur and (cur[-1] not in eos_punct):
+                    out.append(cur.rstrip() + nxt.lstrip())
+                    i += 2
+                    changed = True
+                    continue
+            # Join if previous ends with 条/項/号 and next begins with a particle or punctuation
+            if nxt:
+                prev_end = cur.rstrip()[-1:] if cur else ""
+                next_start = nxt.lstrip()[:1]
+                if prev_end in {"条","項","号"} and next_start in {"の","に","を","へ","と","や","及","並","、",",","(","（"}:
+                    out.append(cur.rstrip() + nxt.lstrip())
+                    i += 2
+                    changed = True
+                    continue
+            # Join when current line is just a token like 前項/同条
+            if nxt and token_solo_re.match(cur):
+                out.append(cur.strip() + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # Join parentheses blocks on their own line with previous
+            if paren_block_re.match(cur) and prv:
+                out[-1] = prv.rstrip() + cur.strip()
+                i += 1
+                changed = True
+                continue
+            # If line ends with an opening parenthesis, join with next
+            if nxt and (cur.rstrip().endswith("（") or cur.rstrip().endswith("(")):
+                out.append(cur.rstrip() + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # If next is a standalone katakana enumerator and current ends with 'から', join
+            if nxt and enum_kata_solo_re.match(nxt) and cur.rstrip().endswith("から"):
+                out.append(cur.rstrip() + nxt.strip())
+                i += 2
+                changed = True
+                continue
+            # If current ends with katakana enumerator and next starts with 'まで', join
+            if nxt and enum_kata_end_re.search(cur.rstrip()) and nxt.lstrip().startswith("まで"):
+                out.append(cur.rstrip() + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # If current ends with katakana enumerator and next starts with 'から', join
+            if nxt and enum_kata_end_re.search(cur.rstrip()) and nxt.lstrip().startswith("から"):
+                out.append(cur.rstrip() + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # If current ends with '次の' and next starts with katakana enumerator, join
+            if nxt and cur.rstrip().endswith("次の") and (enum_kata_solo_re.match(nxt) or enum_kata_end_re.match(nxt.lstrip()[-1:]) or re.match(r"^\s*[アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲ]", nxt)):
+                out.append(cur.rstrip() + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # If current ends with '、', join with next unless next is a new header/enumerator
+            if nxt and cur.rstrip().endswith("、"):
+                next_stripped = nxt.strip()
+                if not (art_header_re.match(next_stripped) or enum_paren_re.match(next_stripped) or enum_numsolo_re.match(next_stripped) or enum_kata_solo_re.match(next_stripped)):
+                    out.append(cur.rstrip() + next_stripped)
+                    i += 2
+                    changed = True
+                    continue
+            # If current ends with CJK and next starts with CJK and not sentence end, join
+            if nxt and cur and (cur[-1] not in eos_punct) and re.match(r"[\u4E00-\u9FFF]$", cur[-1]) and re.match(r"^[\u4E00-\u9FFF]", nxt.lstrip()):
+                out.append(cur.rstrip() + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # If next line is a lone closing paren, join
+            if nxt and lone_close_re.match(nxt):
+                out.append(cur.rstrip() + nxt.strip())
+                i += 2
+                changed = True
+                continue
+            # If current is a lone opening paren, join with next
+            if nxt and lone_open_re.match(cur):
+                out.append(cur.strip() + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # If current ends with closing paren and next starts with 第 (e.g., law article), join
+            if nxt and (cur.rstrip().endswith("）") or cur.rstrip().endswith(")")) and nxt.lstrip().startswith("第"):
+                out.append(cur.rstrip() + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            # If current ends with '、' and next starts with cross-ref head like 前/同/次/第/条例/規則, join
+            if nxt and cur.rstrip().endswith("、") and nxt.lstrip()[:1] in {"前","同","次","第","条","規","本"}:
+                out.append(cur.rstrip() + nxt.lstrip())
+                i += 2
+                changed = True
+                continue
+            out.append(cur)
+            i += 1
+        return out, changed
+
+    # Iteratively apply merge until stable
+    changed = True
+    while changed:
+        lines, changed = merge_splits(lines)
+
+    # Remove duplicate consecutive empty lines and trim
+    cleaned = []
+    prev_empty = False
+    for ln in lines:
+        is_empty = (ln.strip() == "")
+        if is_empty and prev_empty:
+            continue
+        cleaned.append(ln)
+        prev_empty = is_empty
+    text = "\n".join(cleaned).strip()
+    # Inline tidy-up: collapse spaces around parentheses and after 条/項/号, and between 第..条 and particles
+    subs = [
+        (r"（\s+", "（"),
+        (r"\s+）", "）"),
+        (r"\(\s+", "("),
+        (r"\s+\)", ")"),
+        (r"(条|項|号)\s+([のにをへとや及び並び])", r"\1\2"),
+        (r"第\s*([0-9０-９〇一二三四五六七八九十百千万]+)\s*条\s+([のにをへとや及び並び])", r"第\1条\2"),
+    ]
+    for pat, rep in subs:
+        text = re.sub(pat, rep, text)
+    return text
+
 def extract_html_text(html_bytes: bytes, url: str) -> str:
     # encoding detection
     enc = chardet.detect(html_bytes).get("encoding") or "utf-8"
@@ -103,6 +304,22 @@ def extract_html_text(html_bytes: bytes, url: str) -> str:
     text = "\n".join(lines)
     return normalize_text(text)
 
+def extract_html_text_bs_only(html_bytes: bytes) -> str:
+    """BeautifulSoup-only extractor (bypass Trafilatura)."""
+    try:
+        enc = chardet.detect(html_bytes).get("encoding") or "utf-8"
+    except Exception:
+        enc = "utf-8"
+    html = html_bytes.decode(enc, errors="replace")
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script","style","noscript","header","footer","nav"]):
+        tag.decompose()
+    text = soup.get_text("\n")
+    lines = [ln.strip() for ln in text.splitlines()]
+    lines = [ln for ln in lines if ln]
+    text = "\n".join(lines)
+    return normalize_text(text)
+
 def pdf_text_fast(path: Path) -> str:
     """Try pdfminer first; if too short, try PyMuPDF blocks with sort."""
     try:
@@ -111,16 +328,18 @@ def pdf_text_fast(path: Path) -> str:
         t = ""
     if len(t.strip()) >= 200:
         return normalize_text(t)
-    # try PyMuPDF
-    try:
-        doc = fitz.open(path)
-        blocks = []
-        for page in doc:
-            blocks.append(page.get_text("text", sort=True))
-        t2 = "\n".join(blocks)
-        return normalize_text(t2)
-    except Exception:
-        return normalize_text(t)
+    # try PyMuPDF if available
+    if HAS_FITZ:
+        try:
+            doc = fitz.open(path)
+            blocks = []
+            for page in doc:
+                blocks.append(page.get_text("text", sort=True))
+            t2 = "\n".join(blocks)
+            return normalize_text(t2)
+        except Exception:
+            pass
+    return normalize_text(t)
 
 def is_scanned_pdf(path: Path, char_threshold=200) -> bool:
     """Heuristic: extract text and count; scanned PDFs usually yield near zero."""
@@ -217,7 +436,8 @@ def process_url(url: str, meta: dict, html_completed: set):
     
     # HTML processing
     out_txt = OUT_DIR / f"{fname_base}.txt"
-    if out_txt.exists():
+    overwrite = os.getenv("OVERWRITE", "0") == "1"
+    if out_txt.exists() and not overwrite:
         print(f"    [SKIP] Already exists: {out_txt}")
         return {
             "url": url,
@@ -246,9 +466,21 @@ def process_url(url: str, meta: dict, html_completed: set):
         body = r_get.content
     rec_hash = sha256_of_bytes(body)
     record["bytes_sha256"] = rec_hash
-    text = extract_html_text(body, url)
+    # Choose extraction path
+    netloc = urlparse(url).netloc.lower()
+    force_bs = os.getenv("FORCE_BS", "0") == "1"
+    force_tra = os.getenv("FORCE_TRA", "0") == "1"
+    use_bs = force_bs or (("g-reiki.net" in netloc) and not force_tra)
+    if use_bs:
+        text = extract_html_text_bs_only(body)
+        method_used = "beautifulsoup"
+    else:
+        text = extract_html_text(body, url)
+        method_used = "trafilatura" if HAS_TRA else "beautifulsoup"
+    # Common cleanup
+    text = cleanup_extracted_text(text, url)
     out_txt.write_text(text, encoding="utf-8")
-    record["method"] = "trafilatura/BeautifulSoup"
+    record["method"] = method_used
     record["output_txt"] = str(out_txt)
     return record
 
@@ -345,6 +577,12 @@ def process_single_file(urls_path):
         # デフォルトのディレクトリを使用
         OUT_DIR = Path("out_2020")
         PDF_DIR = Path("out_pdf_2020")
+
+    # Optional suffix to keep multiple runs separate (e.g., bs vs traf)
+    suffix = os.getenv("OUT_DIR_TAG", "").strip()
+    if suffix:
+        OUT_DIR = Path(f"{OUT_DIR}_{suffix}")
+        PDF_DIR = Path(f"{PDF_DIR}_{suffix}")
     
     print(f"\n{'='*60}")
     print(f"Processing: {urls_path}")

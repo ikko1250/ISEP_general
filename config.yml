@@ -1,0 +1,30 @@
+normalize:
+  nfkc: true
+  collapse_spaces: true
+  strip_brackets_notes: true
+
+sudachi:
+  enabled: true
+  mode: "A"
+  window: 10
+
+regex:
+  include:
+    consent_verb: ["同意.?得", "承諾.?得", "同意書", "承諾書", "書面.{0,4}同意", "同意.?受け"]
+    residents: ["(近隣|周辺|隣接|近接|近傍|周囲)\\s*(住民|居住者|世帯|区民|町民|村民)"]
+    adjacent_landowner: ["(隣接|周辺|近隣|近接).*(土地|地).*(所有者|占有者|管理者)"]
+    interested_party: ["利害関係(者|人)"]
+    community: ["自治会", "町内会", "自治組織", "自治会長"]
+    consent_docs: ["同意書", "承諾書", "書面.{0,4}同意"]
+  exclude:
+    mayor_consent: ["(市長|区長|町長|村長|知事).{0,8}(同意|承認|許可)"]
+    definition: ["この条例において", "の定義", "とは、", "をいう。"]
+    owner_consent: ["(土地|建物|施設|発電設備).*(所有者).*(同意|承諾)"]
+    information_only: ["意見.?聴", "意見聴取", "意見提出", "意見を求め"]
+    procedural_only: ["届出", "通知", "申請", "協議", "認定", "許可申請"]
+
+decision:
+  neg_overrides: ["mayor_consent", "definition", "owner_consent"]
+  require_consent_for_pos: true
+  prefer_pos_when_weak_neg: false
+

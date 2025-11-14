@@ -8,7 +8,7 @@ import os
 
 # --- 設定 ---
 BASE_DIR = Path('/home/ubuntu/cur/isep')
-DB_PATH = BASE_DIR / 'clause-viewer/clause_data.db'
+DB_PATH = BASE_DIR / 'clause-viewer/clause_data2.db'
 OUTPUT_DIR = BASE_DIR / 'clause-viewer/data'
 MUNICS_DIR = OUTPUT_DIR / 'municipalities'
 
