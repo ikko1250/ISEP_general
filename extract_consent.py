@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import csv
+import sqlite3
 import json
 import os
 import re
@@ -314,7 +315,9 @@ def classify_text(
 
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Extract stakeholder consent mentions from ordinance text lines")
-    ap.add_argument("--input", required=False, default="clause-viewer/stakeholder_confirmation_paragraphs.csv", help="Input CSV path")
+    ap.add_argument("--input", required=False, default="clause-viewer/stakeholder_confirmation_paragraphs.csv", help="Input CSV path (ignored if --db is set)")
+    ap.add_argument("--db", required=False, default=None, help="SQLite DB path (e.g., clause-viewer/clause_data2.db)")
+    ap.add_argument("--db-code", required=False, default="*CLAUSE_STAKEHOLDER_CONFIRMATION", help="Limit paragraphs to those tagged with this coding_types.code")
     ap.add_argument("--output", required=False, default="out_stakeholder_consent.csv", help="Output CSV path")
     ap.add_argument("--config", required=False, default="config.yml", help="Config file (YAML or JSON)")
     ap.add_argument("--use-sudachi", dest="use_sudachi", action="store_true", help="Enable Sudachi proximity logic")
@@ -324,7 +327,136 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--window", type=int, default=None, help="Proximity window size")
     ap.add_argument("--dump-pos", default=None, help="Optional CSV path to dump POS rows")
     ap.add_argument("--dump-amb", default=None, help="Optional CSV path to dump AMB rows")
+    # Sentence/enum splitting options
+    ap.add_argument("--sentence-split", action="store_true", help="Split paragraph into sentence-like units (handles digits+space and (1) enum)")
+    ap.add_argument("--sentence-detailed", action="store_true", help="When splitting, output per-sentence rows instead of aggregated per paragraph")
+    ap.add_argument("--include-meta", action="store_true", help="Include paragraph metadata (if available from DB/CSV) in output")
     return ap.parse_args()
+
+
+def iter_texts_from_db(db_path: str, code: str):
+    """Yield raw paragraph texts from SQLite filtered by coding_types.code.
+
+    Uses the same target selection as clause-viewer/sqlite_to_html_stakeholder_confirmation.py
+    but only returns paragraph text strings.
+    """
+    con = sqlite3.connect(db_path)
+    try:
+        con.row_factory = sqlite3.Row
+        sql = (
+            "WITH target AS (\n"
+            "  SELECT p.id AS paragraph_id, p.text AS text\n"
+            "  FROM paragraphs p\n"
+            "  JOIN paragraph_codings pc ON pc.paragraph_id = p.id\n"
+            "  JOIN coding_types ct ON ct.id = pc.coding_type_id\n"
+            "  WHERE ct.code = ?\n"
+            ")\n"
+            "SELECT text FROM target ORDER BY paragraph_id"
+        )
+        cur = con.execute(sql, (code,))
+        for r in cur.fetchall():
+            yield r["text"] or ""
+    finally:
+        con.close()
+
+
+def iter_rows_from_db(db_path: str, code: str):
+    """Yield dict rows including text and paragraph meta from SQLite.
+
+    Keys: paragraph_id, municipality, year, category, dan_number, text
+    """
+    con = sqlite3.connect(db_path)
+    try:
+        con.row_factory = sqlite3.Row
+        sql = (
+            "WITH target AS (\n"
+            "  SELECT p.id AS paragraph_id, m.name AS municipality, p.year AS year,\n"
+            "         p.category AS category, p.dan_number AS dan_number, p.text AS text\n"
+            "  FROM paragraphs p\n"
+            "  JOIN paragraph_codings pc ON pc.paragraph_id = p.id\n"
+            "  JOIN coding_types ct ON ct.id = pc.coding_type_id\n"
+            "  JOIN municipalities m ON m.id = p.municipality_id\n"
+            "  WHERE ct.code = ?\n"
+            ")\n"
+            "SELECT paragraph_id, municipality, year, category, dan_number, text\n"
+            "FROM target ORDER BY paragraph_id"
+        )
+        cur = con.execute(sql, (code,))
+        for r in cur.fetchall():
+            yield {
+                "paragraph_id": r["paragraph_id"],
+                "municipality": r["municipality"],
+                "year": r["year"],
+                "category": r["category"],
+                "dan_number": r["dan_number"],
+                "text": r["text"] or "",
+            }
+    finally:
+        con.close()
+
+
+_RX_PUNCT = re.compile(r"[。．]")
+_RX_NUMERIC_PAREN = re.compile(r"(?:\(|（)\s*\d{1,3}\s*(?:\)|）)")
+_RX_DIGIT_SPACE = re.compile(r"(?<=\D)\d{1,3}[\s　]")
+
+
+def split_sentences_like_bullets(text: str) -> List[str]:
+    """句点・数値のみ括弧・数字+空白で安定分割する。
+
+    - 句点（。/．）の直後で分割
+    - (1)/(10)/（1）など「括弧内が数字のみ」の直前で分割（括弧内は保護して内部で再分割しない）
+    - 「数字+空白」（前が数字以外）の直前で分割（ただし保護括弧内は除外）
+    """
+    if not text:
+        return []
+
+    n = len(text)
+    boundaries: set[int] = set()
+    protected: list[tuple[int, int]] = []
+
+    # 1) 句点の後（ただし直後の非空白が閉じ括弧なら分割しない）
+    WS = set(" \t\r\n\u3000")
+    for m in _RX_PUNCT.finditer(text):
+        end = m.end()
+        j = end
+        while j < n and text[j] in WS:
+            j += 1
+        if j < n and text[j] in ")）":
+            # 括弧内の句点は文末扱いにしない
+            continue
+        boundaries.add(end)
+
+    # 2) 数値のみ括弧の直前 + 括弧範囲を保護
+    for m in _RX_NUMERIC_PAREN.finditer(text):
+        boundaries.add(m.start())
+        protected.append((m.start(), m.end()))
+
+    def _in_protected(i: int) -> bool:
+        for a, b in protected:
+            if a <= i < b:
+                return True
+        return False
+
+    # 3) 数字+空白（非数字の後）: 保護範囲外のみ採用
+    for m in _RX_DIGIT_SPACE.finditer(text):
+        idx = m.start()
+        if not _in_protected(idx):
+            boundaries.add(idx)
+
+    # 累積分割
+    parts: List[str] = []
+    last = 0
+    for idx in sorted(b for b in boundaries if 0 < b < n):
+        if idx <= last:
+            continue
+        chunk = text[last:idx].strip()
+        if chunk:
+            parts.append(chunk)
+        last = idx
+    tail = text[last:].strip()
+    if tail:
+        parts.append(tail)
+    return parts
 
 
 def main() -> int:
@@ -365,27 +497,20 @@ def main() -> int:
         "hit_procedural_only",
     ]
 
-    fieldnames = ["text", "class", "reason"] + flag_cols + ["sudachi_tokens", "version"]
+    # 動的な列構成
+    base_fields = ["text", "class", "reason"] + flag_cols + ["sudachi_tokens", "version"]
+    fieldnames = list(base_fields)
+    if args.sentence_split and args.sentence_detailed:
+        fieldnames = ["sentence_index"] + fieldnames
+    if args.include_meta:
+        # 可能なら paragraph メタ情報を前に付ける
+        meta_cols = ["paragraph_id", "municipality", "year", "category", "dan_number"]
+        fieldnames = meta_cols + fieldnames
 
     total = 0
     try:
-        with open(in_path, "r", encoding="utf-8", newline="") as fin, \
-                open(out_path, "w", encoding="utf-8", newline="") as fout:
-            reader = csv.DictReader(fin)
-
-            # Try to detect text column
-            text_col = "text" if "text" in reader.fieldnames else None
-            if text_col is None:
-                # Heuristic fallback: last column named 'text' in Japanese dataset
-                for cand in ["本文", "sentence", "paragraph", "content"]:
-                    if cand in reader.fieldnames:
-                        text_col = cand
-                        break
-            if text_col is None:
-                # As a final fallback, use the last column
-                text_col = reader.fieldnames[-1]
-                eprint(f"Warning: 'text' column not found; using '{text_col}'")
-
+        # Open output writers
+        with open(out_path, "w", encoding="utf-8", newline="") as fout:
             writer = csv.DictWriter(fout, fieldnames=fieldnames)
             writer.writeheader()
 
@@ -398,24 +523,184 @@ def main() -> int:
                 amb_writer = csv.DictWriter(amb_fp, fieldnames=fieldnames)
                 amb_writer.writeheader()
 
-            for row in reader:
-                total += 1
-                raw_text = row.get(text_col, "")
-                label, flags, reason, tokens = classify_text(raw_text, compiled_rx, cfg)
-                out_row = {
-                    "text": raw_text,
-                    "class": label,
-                    "reason": reason,
-                    "sudachi_tokens": tokens,
-                    "version": VERSION,
-                }
-                for k in flag_cols:
-                    out_row[k] = bool(flags.get(k, False))
-                writer.writerow(out_row)
-                if label == "POS" and pos_writer is not None:
-                    pos_writer.writerow(out_row)
-                if label == "AMB" and amb_writer is not None:
-                    amb_writer.writerow(out_row)
+            # Choose input source: DB or CSV
+            if args.db:
+                # DBからパラグラフ列挙（メタあり）
+                rows_iter = iter_rows_from_db(args.db, args.db_code)
+                for row_meta in rows_iter:
+                    total += 1
+                    raw_text = row_meta.get("text", "")
+                    metas = {k: row_meta.get(k) for k in ("paragraph_id","municipality","year","category","dan_number")}
+
+                    if args.sentence_split:
+                        sents = split_sentences_like_bullets(raw_text)
+                        if not sents:
+                            sents = [raw_text]
+                        per_sent_rows = []
+                        for si, sent in enumerate(sents):
+                            label, flags, reason, tokens = classify_text(sent, compiled_rx, cfg)
+                            row = {
+                                "text": sent,
+                                "class": label,
+                                "reason": reason,
+                                "sudachi_tokens": tokens,
+                                "version": VERSION,
+                            }
+                            for k in flag_cols:
+                                row[k] = bool(flags.get(k, False))
+                            if args.sentence_detailed:
+                                if args.include_meta:
+                                    row = {**metas, "sentence_index": si, **row}
+                                else:
+                                    row = {"sentence_index": si, **row}
+                                writer.writerow(row)
+                                if label == "POS" and pos_writer is not None:
+                                    pos_writer.writerow(row)
+                                if label == "AMB" and amb_writer is not None:
+                                    amb_writer.writerow(row)
+                            per_sent_rows.append((label, row))
+                        if not args.sentence_detailed:
+                            # 集約: POS > AMB > NEG（flags は OR）
+                            agg_label = "NEG"
+                            if any(l == "POS" for l, _ in per_sent_rows):
+                                agg_label = "POS"
+                            elif any(l == "AMB" for l, _ in per_sent_rows):
+                                agg_label = "AMB"
+                            # flags OR & reason連結（先頭のtokens採用）
+                            agg_flags = {k: False for k in flag_cols}
+                            reasons = []
+                            tokens = ""
+                            for _, r in per_sent_rows:
+                                reasons.append(r.get("reason", ""))
+                                if not tokens:
+                                    tokens = r.get("sudachi_tokens", "")
+                                for k in flag_cols:
+                                    agg_flags[k] = agg_flags[k] or bool(r.get(k, False))
+                            out_row = {"text": raw_text, "class": agg_label, "reason": " || ".join(reasons), "sudachi_tokens": tokens, "version": VERSION}
+                            for k in flag_cols:
+                                out_row[k] = agg_flags[k]
+                            if args.include_meta:
+                                out_row = {**metas, **out_row}
+                            writer.writerow(out_row)
+                            if agg_label == "POS" and pos_writer is not None:
+                                pos_writer.writerow(out_row)
+                            if agg_label == "AMB" and amb_writer is not None:
+                                amb_writer.writerow(out_row)
+                    else:
+                        # 段落単位（従来どおり）
+                        label, flags, reason, tokens = classify_text(raw_text, compiled_rx, cfg)
+                        out_row = {
+                            "text": raw_text,
+                            "class": label,
+                            "reason": reason,
+                            "sudachi_tokens": tokens,
+                            "version": VERSION,
+                        }
+                        for k in flag_cols:
+                            out_row[k] = bool(flags.get(k, False))
+                        if args.include_meta:
+                            out_row = {**metas, **out_row}
+                        writer.writerow(out_row)
+                        if label == "POS" and pos_writer is not None:
+                            pos_writer.writerow(out_row)
+                        if label == "AMB" and amb_writer is not None:
+                            amb_writer.writerow(out_row)
+            else:
+                with open(in_path, "r", encoding="utf-8", newline="") as fin:
+                    reader = csv.DictReader(fin)
+
+                    # Try to detect text column
+                    text_col = "text" if "text" in reader.fieldnames else None
+                    if text_col is None:
+                        # Heuristic fallback: last column named 'text' in Japanese dataset
+                        for cand in ["本文", "sentence", "paragraph", "content"]:
+                            if cand in reader.fieldnames:
+                                text_col = cand
+                                break
+                    if text_col is None:
+                        # As a final fallback, use the last column
+                        text_col = reader.fieldnames[-1]
+                        eprint(f"Warning: 'text' column not found; using '{text_col}'")
+
+                    for row in reader:
+                        total += 1
+                        raw_text = row.get(text_col, "")
+                        metas = {}
+                        if args.include_meta:
+                            # CSVにある場合のみ拾う
+                            for k in ("paragraph_id","municipality","year","category","dan_number"):
+                                if k in reader.fieldnames:
+                                    metas[k] = row.get(k)
+                        if args.sentence_split:
+                            sents = split_sentences_like_bullets(raw_text)
+                            if not sents:
+                                sents = [raw_text]
+                            per_sent_rows = []
+                            for si, sent in enumerate(sents):
+                                label, flags, reason, tokens = classify_text(sent, compiled_rx, cfg)
+                                r = {
+                                    "text": sent,
+                                    "class": label,
+                                    "reason": reason,
+                                    "sudachi_tokens": tokens,
+                                    "version": VERSION,
+                                }
+                                for k in flag_cols:
+                                    r[k] = bool(flags.get(k, False))
+                                if args.sentence_detailed:
+                                    if args.include_meta:
+                                        r = {**metas, "sentence_index": si, **r}
+                                    else:
+                                        r = {"sentence_index": si, **r}
+                                    writer.writerow(r)
+                                    if label == "POS" and pos_writer is not None:
+                                        pos_writer.writerow(r)
+                                    if label == "AMB" and amb_writer is not None:
+                                        amb_writer.writerow(r)
+                                per_sent_rows.append((label, r))
+                            if not args.sentence_detailed:
+                                agg_label = "NEG"
+                                if any(l == "POS" for l, _ in per_sent_rows):
+                                    agg_label = "POS"
+                                elif any(l == "AMB" for l, _ in per_sent_rows):
+                                    agg_label = "AMB"
+                                agg_flags = {k: False for k in flag_cols}
+                                reasons = []
+                                tokens = ""
+                                for _, r in per_sent_rows:
+                                    reasons.append(r.get("reason", ""))
+                                    if not tokens:
+                                        tokens = r.get("sudachi_tokens", "")
+                                    for k in flag_cols:
+                                        agg_flags[k] = agg_flags[k] or bool(r.get(k, False))
+                                out_row = {"text": raw_text, "class": agg_label, "reason": " || ".join(reasons), "sudachi_tokens": tokens, "version": VERSION}
+                                for k in flag_cols:
+                                    out_row[k] = agg_flags[k]
+                                if args.include_meta:
+                                    out_row = {**metas, **out_row}
+                                writer.writerow(out_row)
+                                if agg_label == "POS" and pos_writer is not None:
+                                    pos_writer.writerow(out_row)
+                                if agg_label == "AMB" and amb_writer is not None:
+                                    amb_writer.writerow(out_row)
+                        else:
+                            label, flags, reason, tokens = classify_text(raw_text, compiled_rx, cfg)
+                            out_row = {
+                                "text": raw_text,
+                                "class": label,
+                                "reason": reason,
+                                "sudachi_tokens": tokens,
+                                "version": VERSION,
+                            }
+                            for k in flag_cols:
+                                out_row[k] = bool(flags.get(k, False))
+                            if args.include_meta:
+                                out_row = {**metas, **out_row}
+                            writer.writerow(out_row)
+                            if label == "POS" and pos_writer is not None:
+                                pos_writer.writerow(out_row)
+                            if label == "AMB" and amb_writer is not None:
+                                amb_writer.writerow(out_row)
     finally:
         if pos_fp:
             pos_fp.close()
@@ -428,4 +713,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
