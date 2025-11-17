@@ -4,9 +4,17 @@
 import re
 import argparse
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Tuple, Set
 
 from bs4 import BeautifulSoup
+from bs4 import NavigableString
+from datetime import date
+
+# 共通の日付+連番命名ユーティリティ
+try:
+    from versioning.filename import make_dated_versioned_path
+except Exception:
+    make_dated_versioned_path = None  # 後方互換: モジュール未作成時は従来の.vNを使用
 
 
 # 「第1条」「第23条」などを検出
@@ -18,7 +26,7 @@ def _clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def extract_articles(html: str) -> list[str]:
+def extract_articles(html: str) -> List[str]:
     """
     条文テキストを条ごとにまとめて返す。
 
@@ -31,10 +39,30 @@ def extract_articles(html: str) -> list[str]:
     # 本文エリア（なければ全体）
     primary = soup.find("div", id="primary") or soup
 
+    # 余計なノイズの除去（本文抽出前に実施）
+    for tag in primary.find_all(["script", "style", "noscript"]):
+        tag.decompose()
+
+    # ルビ: 読み仮名(rt)を除去し、ruby容器は外す
+    for rt in primary.find_all("rt"):
+        rt.decompose()
+    for ruby in primary.find_all("ruby"):
+        ruby.unwrap()
+
+    # 表: <table> を削除。captionがあれば直前に生テキストとして残す
+    for tbl in primary.find_all("table"):
+        caption_text = None
+        cap = tbl.find("caption")
+        if cap:
+            caption_text = cap.get_text(" ", strip=True)
+        if caption_text:
+            tbl.insert_before(NavigableString(caption_text))
+        tbl.decompose()
+
     elines = primary.select("div.eline")
 
-    articles: list[str] = []
-    current_paragraphs: list[str] = []  # 1条の中の各項のテキスト
+    articles: List[str] = []
+    current_paragraphs: List[str] = []  # 1条の中の各項のテキスト
     inside_article = False              # 「第○条」以降かどうかのフラグ
 
     for el in elines:
@@ -79,15 +107,19 @@ def extract_articles(html: str) -> list[str]:
             continue
 
         # --- 各号（(1), (2), ア, イ…） ---
-        if "item" in classes:
+        # 一部自治体では "subitem" 等のクラスを用いる可能性があるため併せて扱う
+        if ("item" in classes) or ("subitem" in classes):
             item_text = container.get_text(separator="", strip=True)
             item_text = _clean_text(item_text)
             if item_text:
-                # 号は改行せず、直前の項の末尾に続ける
+                # 号は改行せず直前の項に続けるが、号番号の直前に句点「。」を補う
                 if current_paragraphs:
+                    # 直前が句点で終わっていない場合に限り句点を挿入
+                    if not current_paragraphs[-1].endswith("。"):
+                        current_paragraphs[-1] += "。"
                     current_paragraphs[-1] += item_text
                 else:
-                    # 念のため、項がまだない場合は新規項として扱う
+                    # 念のため、項がまだない場合は新規項として扱う（先頭には句点を置かない）
                     current_paragraphs.append(item_text)
             continue
 
@@ -224,8 +256,8 @@ def main():
     root: Path = args.root
 
     rows: List[dict] = []
-    valid_new_keys: set[Tuple[str, str, str]] = set()
-    fallback_keys: list[Tuple[str, str, str]] = []
+    valid_new_keys: Set[Tuple[str, str, str]] = set()
+    fallback_keys: List[Tuple[str, str, str]] = []
     new_total = 0
     new_valid = 0
     for fp, year in _iter_html_files(root):
@@ -282,8 +314,19 @@ def main():
                     }
                 )
 
-    # 出力先（バージョン付与で上書き回避）
-    out_path = _next_versioned_path(args.output)
+    # 出力先（デフォルトは「当日付+連番」方式の別名保存）
+    # args.output がファイルパス指定の場合: そのディレクトリ/拡張子を利用し、
+    # ベース名(stem)を prefix として日付+連番を付与した新名称を採用する。
+    out_dir = args.output.parent if args.output.suffix else Path.cwd()
+    base_stem = args.output.stem if args.output.suffix else (args.output.name or "output")
+    suffix = args.output.suffix if args.output.suffix else ".csv"
+
+    if make_dated_versioned_path is not None:
+        out_path = make_dated_versioned_path(out_dir, base_stem + "_", suffix)
+    else:
+        # フォールバック: 旧式 .vN 連番
+        desired = out_dir / f"{base_stem}{suffix}"
+        out_path = _next_versioned_path(desired)
 
     # CSV 書き出し
     import csv
