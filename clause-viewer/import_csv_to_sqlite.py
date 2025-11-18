@@ -5,17 +5,17 @@ from tqdm import tqdm
 
 # --- 設定 ---
 BASE_DIR = Path('/home/ubuntu/cur/isep')
-DB_PATH = BASE_DIR / 'clause-viewer/clause_data2.db'
-MAIN_CSV_PATH = BASE_DIR / 'main5.csv'
-CODING_CSV_PATH = BASE_DIR / 'v5_dan_vs_munic._table.csv'
-ANALYSIS_CSV_PATH = BASE_DIR / 'result_solar_rule_v1.1.csv'
+DB_PATH = BASE_DIR / 'clause-viewer/clause_data3.db'
+MAIN_CSV_PATH = BASE_DIR / 'main5.2.csv'
+CODING_CSV_PATH = BASE_DIR / 'v5.2_dan_vs_munic._table.csv'
+ANALYSIS_CSV_PATH = BASE_DIR / 'Classification_munic_2025-11-18.v.3.csv'
 
 def import_municipalities(conn):
     """自治体データをインポート"""
     cursor = conn.cursor()
     print("\n[1/4] 自治体マスタをインポート中...")
 
-    # --- main4.3.csvから全ての自治体名を先に登録 ---
+    # --- main5.2.csvから全ての自治体名を先に登録 ---
     df_main = pd.read_csv(MAIN_CSV_PATH)
     all_municipalities = df_main['自治体'].unique()
     
@@ -23,7 +23,7 @@ def import_municipalities(conn):
     conn.commit()
     print(f"  - {len(all_municipalities)}自治体の基礎情報を登録しました。")
 
-    # --- result_solar_rule_v1.1.csvから分析結果を読み込み、UPDATE ---
+    # --- Classification_munic_2025-11-18.v.3.csvから分析結果を読み込み、UPDATE ---
     df_analysis = pd.read_csv(ANALYSIS_CSV_PATH)
     
     update_data = []
