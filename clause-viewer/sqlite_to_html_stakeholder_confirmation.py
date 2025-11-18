@@ -2,6 +2,13 @@
 import json
 import sqlite3
 from pathlib import Path
+try:
+    from versioning.filename import make_dated_versioned_path
+except ModuleNotFoundError:
+    # スクリプト単体実行時にパス解決できない環境のためのフォールバック
+    import sys as _sys
+    _sys.path.append(str(Path(__file__).resolve().parents[1]))
+    from versioning.filename import make_dated_versioned_path
 
 
 TEMPLATE = """<!DOCTYPE html>
@@ -202,7 +209,19 @@ def export_html(db_path: Path, out_path: Path):
 
 
 if __name__ == '__main__':
-    db = Path('clause-viewer/clause_data2.db')
-    out_html = Path('clause-viewer/stakeholder_confirmation_from_db.html')
-    export_html(db, out_html)
-    print(f'Wrote {out_html}')
+    # 入力DB
+    db = Path('clause-viewer/clause_data3.db')
+
+    # 出力先ディレクトリとファイル名（バージョニング付き）
+    out_dir = Path('clause-viewer')
+    versioned_path = make_dated_versioned_path(out_dir, 'stakeholder_confirmation_from_db_', '.html')
+
+    # バージョン付きファイルを出力
+    export_html(db, versioned_path)
+
+    # 既存の固定名にも最新を上書き保存（後方互換）
+    latest_path = out_dir / 'stakeholder_confirmation_from_db.html'
+    export_html(db, latest_path)
+
+    print(f'Wrote versioned: {versioned_path}')
+    print(f'Wrote latest:   {latest_path}')

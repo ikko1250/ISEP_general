@@ -7,6 +7,7 @@ BASE_DIR = Path('/home/ubuntu/cur/isep/clause-viewer')
 SCRIPTS = [
     "setup_database.py",
     "import_csv_to_sqlite.py",
+    "apply_csc_bun_from_sentences.py",
     "export_sqlite_to_json.py",
     "export_split_json.py"
 ]
