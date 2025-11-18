@@ -7,7 +7,8 @@ from tqdm import tqdm
 
 # --- 設定 ---
 BASE_DIR = Path('/home/ubuntu/cur/isep')
-DB_PATH = BASE_DIR / 'clause-viewer/clause_data.db'
+# 統一: 最新のスキーマ(clause_data3.db)を使用
+DB_PATH = BASE_DIR / 'clause-viewer/clause_data3.db'
 OUTPUT_JSON_PATH = BASE_DIR / 'clause-viewer/data-integrated.json'
 
 def query_db(conn, sql, params=()):
@@ -100,16 +101,13 @@ def calculate_statistics(df_analysis):
     stats = {
         '規制タイプ分布': df['regulation_type'].value_counts().to_dict(),
         '区域類型分布': df['area_type'].value_counts().to_dict(),
-        '厳格度_絶対分布': df['strictness_absolute'].value_counts().to_dict(),
-        '厳格度_相対分布': df['strictness_relative'].value_counts().to_dict(),
+        '住民同意分布': df['resident_consent'].value_counts().to_dict(),
         'プロセス重視度分布': df['process_emphasis'].value_counts().to_dict(),
     }
     
-    # スコア系の統計情報
-    score_columns = ['strictness_score', 'participation_score', 'procedure_score']
-    for col in score_columns:
-        # カラム名を日本語に寄せる
-        stat_name = col.replace('_score', 'スコア').replace('strictness', '厳格度').replace('participation', '住民参加').replace('procedure', '手続き') + '統計'
+    # スコア系の統計情報（厳格度スコアは廃止）
+    for col, jp in [('participation_score', '住民参加'), ('procedure_score', '手続き')]:
+        stat_name = f"{jp}スコア統計"
         stats[stat_name] = {
             '平均': float(df[col].mean()),
             '中央値': float(df[col].median()),
@@ -140,7 +138,8 @@ def main():
     print("=" * 60)
 
     try:
-        conn = sqlite3.connect(f'file:{DB_PATH}?mode=ro', uri=True) # 読み取り専用で開く
+        # 読み取り専用URIで不具合が出るケースがあったため通常接続に変更
+        conn = sqlite3.connect(DB_PATH)
         
         municipalities_list = get_all_municipalities(conn)
         coding_types_list = get_all_coding_types(conn)

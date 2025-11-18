@@ -7,7 +7,7 @@ from tqdm import tqdm
 BASE_DIR = Path('/home/ubuntu/cur/isep')
 DB_PATH = BASE_DIR / 'clause-viewer/clause_data3.db'
 MAIN_CSV_PATH = BASE_DIR / 'main5.2.csv'
-CODING_CSV_PATH = BASE_DIR / 'v5.2_dan_vs_munic._table.csv'
+CODING_CSV_PATH = BASE_DIR / 'clause-viewer/v5.2_dan_vs_munic._table.csv'
 ANALYSIS_CSV_PATH = BASE_DIR / 'Classification_munic_2025-11-18.v.3.csv'
 
 def import_municipalities(conn):
@@ -32,11 +32,9 @@ def import_municipalities(conn):
             row['ケース数'],
             row['規制タイプ'],
             row['区域類型'],
+            row['住民同意'],
             row['禁止区域比率'],
-            row['厳格度(絶対)'],
-            row['厳格度(相対)'],
             row['プロセス重視度'],
-            row['厳格度スコア(正規化)'],
             row['住民参加(正規化)'],
             row['手続き(正規化)'],
             row['自治体']
@@ -47,11 +45,9 @@ def import_municipalities(conn):
             cases_count = ?,
             regulation_type = ?,
             area_type = ?,
+            resident_consent = ?,
             prohibited_area_ratio = ?,
-            strictness_absolute = ?,
-            strictness_relative = ?,
             process_emphasis = ?,
-            strictness_score = ?,
             participation_score = ?,
             procedure_score = ?
         WHERE name = ?

@@ -8,7 +8,8 @@ import os
 
 # --- 設定 ---
 BASE_DIR = Path('/home/ubuntu/cur/isep')
-DB_PATH = BASE_DIR / 'clause-viewer/clause_data2.db'
+# 統一: 最新のスキーマ(clause_data3.db)を使用
+DB_PATH = BASE_DIR / 'clause-viewer/clause_data3.db'
 OUTPUT_DIR = BASE_DIR / 'clause-viewer/data'
 MUNICS_DIR = OUTPUT_DIR / 'municipalities'
 
@@ -102,14 +103,12 @@ def calculate_statistics(df_analysis):
     stats = {
         '規制タイプ分布': df['regulation_type'].value_counts().to_dict(),
         '区域類型分布': df['area_type'].value_counts().to_dict(),
-        '厳格度_絶対分布': df['strictness_absolute'].value_counts().to_dict(),
-        '厳格度_相対分布': df['strictness_relative'].value_counts().to_dict(),
+        '住民同意分布': df['resident_consent'].value_counts().to_dict(),
         'プロセス重視度分布': df['process_emphasis'].value_counts().to_dict(),
     }
     
-    score_columns = ['strictness_score', 'participation_score', 'procedure_score']
-    for col in score_columns:
-        stat_name = col.replace('_score', 'スコア').replace('strictness', '厳格度').replace('participation', '住民参加').replace('procedure', '手続き') + '統計'
+    for col, jp in [('participation_score', '住民参加'), ('procedure_score', '手続き')]:
+        stat_name = f"{jp}スコア統計"
         stats[stat_name] = {
             '平均': float(df[col].mean()),
             '中央値': float(df[col].median()),

@@ -12,8 +12,8 @@ from pathlib import Path
 
 def load_data():
     """データファイルを読み込む"""
-    # 分析結果CSVを読み込み
-    csv_path = Path('/home/ubuntu/cur/isep/result_solar_rule_v1.1.csv')
+    # 分析結果CSVを読み込み（最新版のカラム仕様）
+    csv_path = Path('/home/ubuntu/cur/isep/Classification_munic_2025-11-18.v.3.csv')
     df_analysis = pd.read_csv(csv_path)
     
     # 既存のdata.jsonを読み込み
@@ -34,10 +34,8 @@ def create_municipality_info(df_analysis):
             '規制タイプ': row['規制タイプ'],
             '区域類型': row['区域類型'],
             '禁止区域比率': float(row['禁止区域比率']),
-            '厳格度_絶対': row['厳格度(絶対)'],
-            '厳格度_相対': row['厳格度(相対)'],
+            '住民同意': row['住民同意'],
             'プロセス重視度': row['プロセス重視度'],
-            '厳格度スコア': float(row['厳格度スコア(正規化)']),
             '住民参加スコア': float(row['住民参加(正規化)']),
             '手続きスコア': float(row['手続き(正規化)'])
         }
@@ -49,16 +47,8 @@ def calculate_statistics(df_analysis):
     stats = {
         '規制タイプ分布': df_analysis['規制タイプ'].value_counts().to_dict(),
         '区域類型分布': df_analysis['区域類型'].value_counts().to_dict(),
-        '厳格度_絶対分布': df_analysis['厳格度(絶対)'].value_counts().to_dict(),
-        '厳格度_相対分布': df_analysis['厳格度(相対)'].value_counts().to_dict(),
+        '住民同意分布': df_analysis['住民同意'].value_counts().to_dict(),
         'プロセス重視度分布': df_analysis['プロセス重視度'].value_counts().to_dict(),
-        '厳格度スコア統計': {
-            '平均': float(df_analysis['厳格度スコア(正規化)'].mean()),
-            '中央値': float(df_analysis['厳格度スコア(正規化)'].median()),
-            '最小値': float(df_analysis['厳格度スコア(正規化)'].min()),
-            '最大値': float(df_analysis['厳格度スコア(正規化)'].max()),
-            '標準偏差': float(df_analysis['厳格度スコア(正規化)'].std())
-        },
         '住民参加スコア統計': {
             '平均': float(df_analysis['住民参加(正規化)'].mean()),
             '中央値': float(df_analysis['住民参加(正規化)'].median()),
@@ -98,7 +88,7 @@ def integrate_data(df_analysis, data):
         'total_municipalities': len(municipality_info),
         'total_paragraphs': len(data['paragraphs']),
         'analysis_fields': [
-            '規制タイプ', '区域類型', '厳格度', 'プロセス重視度'
+            '規制タイプ', '区域類型', '住民同意', 'プロセス重視度'
         ]
     }
     

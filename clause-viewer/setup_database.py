@@ -31,10 +31,8 @@ def setup_database():
         regulation_type TEXT,
         area_type TEXT,
         prohibited_area_ratio REAL,
-        strictness_absolute TEXT,
-        strictness_relative TEXT,
+        resident_consent TEXT,
         process_emphasis TEXT,
-        strictness_score REAL,
         participation_score REAL,
         procedure_score REAL
     )

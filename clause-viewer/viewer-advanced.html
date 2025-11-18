@@ -732,8 +732,8 @@ body {
           <h3 style="font-size: 14px; margin: 12px 0 8px; color: var(--color-text-secondary);">区域類型</h3>
           <div id="zoneTypes" class="button-grid analysis-filters"></div>
           
-          <h3 style="font-size: 14px; margin: 12px 0 8px; color: var(--color-text-secondary);">厳格度レベル</h3>
-          <div id="strictnessLevels" class="button-grid analysis-filters"></div>
+          <h3 style="font-size: 14px; margin: 12px 0 8px; color: var(--color-text-secondary);">住民同意</h3>
+          <div id="residentConsent" class="button-grid analysis-filters"></div>
           
           <h3 style="font-size: 14px; margin: 12px 0 8px; color: var(--color-text-secondary);">プロセス重視度</h3>
           <div id="processTypes" class="button-grid analysis-filters"></div>
@@ -767,7 +767,7 @@ body {
                   <canvas id="zoneChart"></canvas>
                 </div>
                 <div class="chart-container">
-                  <canvas id="strictnessChart"></canvas>
+                  <canvas id="consentChart"></canvas>
                 </div>
                 <div class="chart-container">
                   <canvas id="processChart"></canvas>
@@ -775,17 +775,7 @@ body {
               </div>
             </div>
             
-            <div class="dashboard-section">
-              <h2>🎯 スコア分析</h2>
-              <div class="dashboard-grid">
-                <div class="chart-container">
-                  <canvas id="scatterStrictnessResident"></canvas>
-                </div>
-                <div class="chart-container">
-                  <canvas id="scatterStrictnessProcedure"></canvas>
-                </div>
-              </div>
-            </div>
+            
           </div>
         </div>
       </section>
@@ -803,7 +793,7 @@ body {
     let selectedCodes = [];
     let selectedRegulationType = null;
     let selectedZoneType = null;
-    let selectedStrictnessLevel = null;
+    let selectedResidentConsent = null;
     let selectedProcessType = null;
     let currentView = 'text';
     let charts = {};
@@ -915,15 +905,15 @@ body {
         zoneContainer.appendChild(btn);
       });
 
-      // 厳格度レベル
-      const strictnessLevels = ['非常に厳格', '厳格', '標準', '緩やか'];
-      const strictnessContainer = document.getElementById('strictnessLevels');
-      strictnessContainer.innerHTML = ''; // Clear existing
-      strictnessLevels.forEach(level => {
-        const btn = createAnalysisFilterButton(level, () => {
-          toggleAnalysisFilter('strictness', level, btn);
+      // 住民同意
+      const consentOptions = Object.keys(statistics['住民同意分布'] || {});
+      const consentContainer = document.getElementById('residentConsent');
+      consentContainer.innerHTML = ''; // Clear existing
+      consentOptions.forEach(opt => {
+        const btn = createAnalysisFilterButton(opt, () => {
+          toggleAnalysisFilter('consent', opt, btn);
         });
-        strictnessContainer.appendChild(btn);
+        consentContainer.appendChild(btn);
       });
 
       // プロセス重視度
@@ -950,7 +940,7 @@ body {
       const filterMap = {
         'regulation': 'selectedRegulationType',
         'zone': 'selectedZoneType',
-        'strictness': 'selectedStrictnessLevel',
+        'consent': 'selectedResidentConsent',
         'process': 'selectedProcessType'
       };
       
@@ -1020,7 +1010,7 @@ body {
       selectedCodes = [];
       selectedRegulationType = null;
       selectedZoneType = null;
-      selectedStrictnessLevel = null;
+      selectedResidentConsent = null;
       selectedProcessType = null;
       
       document.querySelectorAll('.filter-btn.selected').forEach(btn => {
@@ -1033,7 +1023,7 @@ body {
     // 表示を更新
     function updateDisplay() {
       // 分析フィルタが選択されている場合は、まず自治体リストをフィルタリング
-      if (selectedRegulationType || selectedZoneType || selectedStrictnessLevel || selectedProcessType) {
+      if (selectedRegulationType || selectedZoneType || selectedResidentConsent || selectedProcessType) {
         filterAndDisplayMunicipalities();
       } else {
         // そうでなければ、すべての自治体ボタンを表示
@@ -1052,7 +1042,7 @@ body {
           if (!info) return false;
           if (selectedRegulationType && info?.regulation_type !== selectedRegulationType) return false;
           if (selectedZoneType && info?.area_type !== selectedZoneType) return false;
-          if (selectedStrictnessLevel && info?.strictness_absolute !== selectedStrictnessLevel) return false;
+          if (selectedResidentConsent && info?.resident_consent !== selectedResidentConsent) return false;
           if (selectedProcessType && info?.process_emphasis !== selectedProcessType) return false;
           return true;
         });
@@ -1116,8 +1106,8 @@ body {
       if (selectedZoneType) {
         statsText += ` | 区域: ${selectedZoneType}`;
       }
-      if (selectedStrictnessLevel) {
-        statsText += ` | 厳格度: ${selectedStrictnessLevel}`;
+      if (selectedResidentConsent) {
+        statsText += ` | 住民同意: ${selectedResidentConsent}`;
       }
       if (selectedProcessType) {
         statsText += ` | プロセス: ${selectedProcessType}`;
@@ -1208,16 +1198,17 @@ body {
           );
           analysisBadges.appendChild(zoneBadge);
           
-          const strictnessValue = munInfo.strictness_absolute || '未設定';
-          const strictBadge = createEditableBadge(
-            'badge strictness ' + getStrictnessClass(strictnessValue),
-            `厳格度: ${strictnessValue}`,
+          // 住民同意バッジ（新規追加）
+          const consentValue = munInfo.resident_consent || '未設定';
+          const consentBadge = createEditableBadge(
+            'badge resident-consent',
+            `住民同意: ${consentValue}`,
             para.municipality,
-            'strictness_absolute',
-            ['非常に厳格', '厳格', '標準', '緩やか'],
-            '厳格度レベル'
+            'resident_consent',
+            Object.keys(statistics['住民同意分布'] || {}),
+            '住民同意'
           );
-          analysisBadges.appendChild(strictBadge);
+          analysisBadges.appendChild(consentBadge);
           
           const processValue = munInfo.process_emphasis || '未設定';
           const procBadge = createEditableBadge(
@@ -1444,7 +1435,9 @@ body {
 
     // バッジ表示を更新
     function updateBadgeDisplay(badgeElement, field, newValue) {
-      const displayText = field === 'strictness_absolute' ? `厳格度: ${newValue}` : newValue;
+      const displayText = field === 'strictness_absolute'
+        ? `厳格度: ${newValue}`
+        : (field === 'resident_consent' ? `住民同意: ${newValue}` : newValue);
       badgeElement.textContent = displayText;
       
       if (field === 'strictness_absolute') {
@@ -1760,11 +1753,9 @@ body {
       
       const stats = [
         { label: '自治体数', value: municipalities.length },
-        { label: '段落総数', value: statistics['総段落数'] },
         { label: 'コーディング種類', value: codingTypes.length },
-        { label: '平均厳格度スコア', value: statistics['厳格度スコア統計']['平均'].toFixed(1) },
-        { label: '平均住民参加スコア', value: statistics['住民参加スコア統計']['平均'].toFixed(1) },
-        { label: '平均手続きスコア', value: statistics['手続きスコア統計']['平均'].toFixed(1) }
+        { label: '平均住民参加スコア', value: (statistics['住民参加スコア統計']?.['平均'] ?? 0).toFixed(1) },
+        { label: '平均手続きスコア', value: (statistics['手続きスコア統計']?.['平均'] ?? 0).toFixed(1) }
       ];
       
       stats.forEach(stat => {
@@ -1845,18 +1836,18 @@ body {
         }
       });
       
-      // 厳格度分布
-      charts.strictness = new Chart(document.getElementById('strictnessChart'), {
+      // 住民同意分布
+      charts.consent = new Chart(document.getElementById('consentChart'), {
         type: 'doughnut',
         data: {
-          labels: Object.keys(statistics['厳格度_絶対分布']),
+          labels: Object.keys(statistics['住民同意分布'] || {}),
           datasets: [{
-            data: Object.values(statistics['厳格度_絶対分布']),
+            data: Object.values(statistics['住民同意分布'] || {}),
             backgroundColor: [
-              'rgba(220, 38, 38, 0.7)',
-              'rgba(234, 88, 12, 0.7)',
-              'rgba(250, 204, 21, 0.7)',
-              'rgba(34, 197, 94, 0.7)'
+              'rgba(59, 130, 246, 0.7)',
+              'rgba(34, 197, 94, 0.7)',
+              'rgba(234, 179, 8, 0.7)',
+              'rgba(239, 68, 68, 0.7)'
             ]
           }]
         },
@@ -1866,7 +1857,7 @@ body {
           plugins: {
             title: {
               display: true,
-              text: '厳格度レベル分布'
+              text: '住民同意分布'
             },
             legend: {
               position: 'bottom'
@@ -1906,117 +1897,7 @@ body {
         }
       });
       
-      // 散布図: 厳格度 vs 住民参加
-      const scatterData1 = municipalities.map(mun => {
-        const info = municipalityInfo[mun];
-        return {
-          x: info['厳格度スコア'],
-          y: info['住民参加スコア'],
-          label: mun
-        };
-      });
-      
-      charts.scatterStrictnessResident = new Chart(document.getElementById('scatterStrictnessResident'), {
-        type: 'scatter',
-        data: {
-          datasets: [{
-            label: '自治体',
-            data: scatterData1,
-            backgroundColor: 'rgba(59, 130, 246, 0.5)',
-            borderColor: 'rgba(59, 130, 246, 1)',
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            title: {
-              display: true,
-              text: '厳格度スコア vs 住民参加スコア'
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return context.raw.label + ': (' + 
-                    context.raw.x.toFixed(1) + ', ' + 
-                    context.raw.y.toFixed(1) + ')';
-                }
-              }
-            }
-          },
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: '厳格度スコア'
-              }
-            },
-            y: {
-              title: {
-                display: true,
-                text: '住民参加スコア'
-              }
-            }
-          }
-        }
-      });
-      
-      // 散布図: 厳格度 vs 手続き
-      const scatterData2 = municipalities.map(mun => {
-        const info = municipalityInfo[mun];
-        return {
-          x: info['厳格度スコア'],
-          y: info['手続きスコア'],
-          label: mun
-        };
-      });
-      
-      charts.scatterStrictnessProcedure = new Chart(document.getElementById('scatterStrictnessProcedure'), {
-        type: 'scatter',
-        data: {
-          datasets: [{
-            label: '自治体',
-            data: scatterData2,
-            backgroundColor: 'rgba(245, 158, 11, 0.5)',
-            borderColor: 'rgba(245, 158, 11, 1)',
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            title: {
-              display: true,
-              text: '厳格度スコア vs 手続きスコア'
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return context.raw.label + ': (' + 
-                    context.raw.x.toFixed(1) + ', ' + 
-                    context.raw.y.toFixed(1) + ')';
-                }
-              }
-            }
-          },
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: '厳格度スコア'
-              }
-            },
-            y: {
-              title: {
-                display: true,
-                text: '手続きスコア'
-              }
-            }
-          }
-        }
-      });
+      // 厳格度関連の散布図は廃止（住民同意はスコアではないため）
     }
 
     // ローディング表示
