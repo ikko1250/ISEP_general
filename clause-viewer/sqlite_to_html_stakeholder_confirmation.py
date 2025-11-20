@@ -167,22 +167,16 @@ def fetch_rows(db_path: Path):
                    p.year AS year,
                    p.category AS category,
                    p.dan_number AS dan_number,
-                   p.text AS text
+                   p.text AS text,
+                   '*CSC_bun' AS code
             FROM paragraphs p
             JOIN paragraph_codings pc ON pc.paragraph_id = p.id
             JOIN coding_types ct ON ct.id = pc.coding_type_id
             JOIN municipalities m ON m.id = p.municipality_id
-            WHERE ct.code = '*CLAUSE_STAKEHOLDER_CONFIRMATION'
-        ), codes AS (
-            SELECT pc.paragraph_id,
-                   GROUP_CONCAT(ct.code, ' | ') AS code
-            FROM paragraph_codings pc
-            JOIN coding_types ct ON ct.id = pc.coding_type_id
-            GROUP BY pc.paragraph_id
+            WHERE ct.code = '*CSC_bun'
         )
-        SELECT t.paragraph_id, t.municipality, t.year, t.category, t.dan_number, t.text, c.code
+        SELECT t.paragraph_id, t.municipality, t.year, t.category, t.dan_number, t.text, t.code
         FROM target t
-        JOIN codes c ON c.paragraph_id = t.paragraph_id
         ORDER BY t.paragraph_id
         """
         cur = conn.execute(sql)
