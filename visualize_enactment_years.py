@@ -1,148 +1,132 @@
-import sqlite3
-import os
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
-import matplotlib.font_manager as fm
+import re
+import sys
+from pathlib import Path
 
-# Database path
-db_path = os.path.join(os.path.dirname(__file__), 'clause-viewer/clause_data3.db')
+def get_font_properties(font_path):
+    """Get font properties from a font file."""
+    try:
+        import matplotlib.font_manager as fm
+        prop = fm.FontProperties(fname=font_path)
+        plt.rcParams['font.family'] = prop.get_name()
+        return prop
+    except Exception as e:
+        print(f"Error loading font file {font_path}: {e}")
+        return None
 
-def visualize_enactment_years():
-    if not os.path.exists(db_path):
-        print(f"Error: Database file not found at {db_path}")
+def create_and_save_graphs(df, title_base, filename_base, font_prop):
+    """Create and save graphs from a DataFrame."""
+    # pivot_tableを使って集計: 行=年, 列=area_type
+    pivot_df = df.groupby(['enactment_year', 'area_type']).size().unstack(fill_value=0)
+    
+    if pivot_df.empty:
+        print(f"No data to plot for {filename_base}.")
         return
 
-    conn = sqlite3.connect(db_path)
+    # 積み上げ順序の指定（下から順に）
+    desired_order = ['区域設定なし', '抑制地区制', '禁止区域制', '2層構造(抑制+禁止)']
     
-    # Query to get municipality name, enactment year, area_type, and text snippet for filtering
-    sql = """
-    SELECT m.name, p.year, m.area_type, p.text
-    FROM municipalities m
-    JOIN paragraphs p ON m.id = p.municipality_id
-    WHERE m.resident_consent = '有' AND p.dan_number = 1 AND p.category = '条例'
-    """
+    # データに存在する列のみを抽出して並べ替え
+    existing_order = [col for col in desired_order if col in pivot_df.columns]
+    # 指定に含まれていない列（Unknownなど）は上部に配置
+    remaining_cols = [col for col in pivot_df.columns if col not in desired_order]
+    new_order = existing_order + remaining_cols
     
-    try:
-        raw_df = pd.read_sql_query(sql, conn)
-        conn.close()
-        
-        if raw_df.empty:
-            print("No data found for resident_consent = '有'")
-            return
+    pivot_df = pivot_df[new_order]
 
-        # Process data to find the correct enactment year
-        processed_data = []
-        
-        # Group by municipality
-        for name, group in raw_df.groupby('name'):
-            # Filter for "Clean" text
-            # Pattern: Starts with (目的), (趣旨), or 第1条
-            # And does NOT start with ○ (which indicates a header like ○XX市条例...)
-            
-            def is_clean(text):
-                text = text.strip()
-                if text.startswith('○'): return False
-                if text.startswith('(目的)'): return True
-                if text.startswith('(趣旨)'): return True
-                if text.startswith('第1条'): return True
-                return False
+    # フォント設定
+    title_font = font_prop.copy() if font_prop else None
+    if title_font: title_font.set_size(16)
+    
+    label_font = font_prop.copy() if font_prop else None
+    if label_font: label_font.set_size(12)
 
-            clean_rows = group[group['text'].apply(is_clean)]
-            
-            if not clean_rows.empty:
-                # If clean rows exist, use the minimum year from them
-                enactment_year = clean_rows['year'].min()
-                area_type = clean_rows.iloc[0]['area_type'] # area_type should be same for municipality
-            else:
-                # Fallback: use minimum year from all rows
-                enactment_year = group['year'].min()
-                area_type = group.iloc[0]['area_type']
-            
-            processed_data.append({
-                'name': name,
-                'enactment_year': int(enactment_year),
-                'area_type': area_type
-            })
-            
-        df = pd.DataFrame(processed_data)
+    # --- グラフ1: 実数 ---
+    # 新しいFigureを作成
+    fig1, ax1 = plt.subplots(figsize=(14, 8))
+    pivot_df.plot(kind='bar', stacked=True, ax=ax1, colormap='viridis', width=0.8)
+    
+    if font_prop:
+        ax1.set_title(f'{title_base}（地域区分別）', fontproperties=title_font)
+        ax1.set_xlabel('制定年', fontproperties=label_font)
+        ax1.set_ylabel('自治体数', fontproperties=label_font)
+        ax1.legend(title='地域区分', prop=label_font)
+        # x軸ラベルの回転とフォント設定
+        for label in ax1.get_xticklabels():
+            label.set_rotation(45)
+            label.set_fontproperties(label_font)
+        for label in ax1.get_yticklabels():
+            label.set_fontproperties(label_font)
+    else:
+        ax1.set_title(f'{title_base} (by Area Type)')
+        ax1.set_xlabel('Enactment Year')
+        ax1.set_ylabel('Count')
+        ax1.legend(title='Area Type')
+        plt.xticks(rotation=45)
 
-        print("Data preview:")
-        print(df.head())
-        print(f"Total municipalities: {len(df)}")
+    ax1.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    
+    # バージョン付きファイル名で保存
+    output_path_count = make_dated_versioned_path(Path('.'), f'{filename_base}_count_', '.png')
+    plt.savefig(output_path_count)
+    print(f"Count graph saved to {output_path_count}")
+    plt.close(fig1)
 
-        # Set Japanese font
-        # Try to find a Japanese font available on the system
-        # Common fonts: IPAexGothic, VL Gothic, TakaoGothic
-        font_path = None
-        font_names = [f.name for f in fm.fontManager.ttflist]
-        preferred_fonts = ['IPAexGothic', 'VL Gothic', 'TakaoGothic', 'Noto Sans CJK JP', 'Droid Sans Japanese']
+    # --- グラフ2: 割合 ---
+    # 行ごとの合計で割って100を掛ける
+    pivot_df_ratio = pivot_df.div(pivot_df.sum(axis=1), axis=0) * 100
+    
+    fig2, ax2 = plt.subplots(figsize=(14, 8))
+    pivot_df_ratio.plot(kind='bar', stacked=True, ax=ax2, colormap='viridis', width=0.8)
+    
+    if font_prop:
+        ax2.set_title(f'{title_base}割合（地域区分別）', fontproperties=title_font)
+        ax2.set_xlabel('制定年', fontproperties=label_font)
+        ax2.set_ylabel('割合 (%)', fontproperties=label_font)
+        # 凡例をグラフの外に出す
+        ax2.legend(title='地域区分', prop=label_font, bbox_to_anchor=(1.01, 1), loc='upper left')
         
-        for font in preferred_fonts:
-            if font in font_names:
-                plt.rcParams['font.family'] = font
-                print(f"Using font: {font}")
-                break
-        else:
-            # Fallback: try to find font file directly if family name doesn't work or not found
-            # This is a common issue in some environments
-            font_files = fm.findSystemFonts()
-            for f in font_files:
-                if 'Gothic' in f or 'gothic' in f:
-                    try:
-                        prop = fm.FontProperties(fname=f)
-                        plt.rcParams['font.family'] = prop.get_name()
-                        print(f"Using font file: {f}")
-                        break
-                    except:
-                        continue
+        for label in ax2.get_xticklabels():
+            label.set_rotation(45)
+            label.set_fontproperties(label_font)
+        for label in ax2.get_yticklabels():
+            label.set_fontproperties(label_font)
+    else:
+        ax2.set_title(f'{title_base} Ratio (by Area Type)')
+        ax2.set_xlabel('Enactment Year')
+        ax2.set_ylabel('Ratio (%)')
+        ax2.legend(title='Area Type', bbox_to_anchor=(1.01, 1), loc='upper left')
+        plt.xticks(rotation=45)
 
-        # Create the plot
-        plt.figure(figsize=(12, 8))
-        
-        # Define the order for stacking (from bottom to top)
-        # Note: seaborn histplot stacks in reverse order of hue_order (first item on top)
-        hue_order = [
-            '2層構造(抑制+禁止)',
-            '禁止地区制',
-            '抑制地区制',
-            '区域設定あり(少数)',
-            '区域設定なし'
-        ]
-        
-        # Create a histogram with stacked bars for area_type
-        # We can use seaborn's histplot with 'hue' and 'multiple="stack"'
-        sns.histplot(
-            data=df,
-            x='enactment_year',
-            hue='area_type',
-            multiple='stack',
-            binwidth=1,
-            discrete=True,
-            palette='viridis',
-            hue_order=hue_order
-        )
-        
-        plt.title('自治体の条例制定年分布 (住民同意要件あり)', fontsize=16)
-        plt.xlabel('制定年', fontsize=14)
-        plt.ylabel('自治体数', fontsize=14)
-        plt.grid(axis='y', linestyle='--', alpha=0.7)
-        
-        # Adjust x-axis ticks to show all years if possible
-        min_year = df['enactment_year'].min()
-        max_year = df['enactment_year'].max()
-        plt.xticks(range(min_year, max_year + 1), rotation=45)
-        
-        plt.tight_layout()
-        
-        output_file = 'enactment_year_histogram.png'
-        plt.savefig(output_file)
-        print(f"Histogram saved to {output_file}")
-        
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        if conn:
-            conn.close()
+    ax2.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+    
+    # バージョン付きファイル名で保存
+    output_path_ratio = make_dated_versioned_path(Path('.'), f'{filename_base}_ratio_', '.png')
+    plt.savefig(output_path_ratio)
+    print(f"Ratio graph saved to {output_path_ratio}")
+    plt.close(fig2)
 
-if __name__ == "__main__":
-    visualize_enactment_years()
+def main():
+    """Main function."""
+    # フォントファイルのパス
+    font_path = 'NotoSansCJK-Regular.ttc'
+    
+    # フォントプロパティの取得
+    font_prop = get_font_properties(font_path)
+    
+    if font_prop:
+        print(f"Font loaded: {font_prop.get_name()}")
+    else:
+        print("日本語フォントが見つかりませんでした。デフォルトフォントを使用します。")
+    
+    # データの読み込み
+    df = pd.read_csv('data.csv')
+    
+    # グラフの生成
+    create_and_save_graphs(df, 'Title', 'filename', font_prop)
+
+if __name__ == '__main__':
+    main()
