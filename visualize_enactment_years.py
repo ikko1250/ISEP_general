@@ -1,46 +1,61 @@
-import matplotlib.pyplot as plt
+import sqlite3
 import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+import os
 import re
-import sys
 from pathlib import Path
+# import seaborn as sns
+from versioning.filename import make_dated_versioned_path
 
-def get_font_properties(font_path):
-    """Get font properties from a font file."""
-    try:
-        import matplotlib.font_manager as fm
+# 日本語フォントの設定
+def set_japanese_font():
+    # 優先順位の高いフォントリスト
+    fonts = [
+        '/usr/share/fonts/truetype/mplus/mplus-1c-regular.ttf',
+        '/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf',
+        '/usr/share/fonts/opentype/ipafont-mincho/ipam.ttf'
+    ]
+    
+    font_path = None
+    for f in fonts:
+        if os.path.exists(f):
+            font_path = f
+            break
+            
+    if font_path:
         prop = fm.FontProperties(fname=font_path)
         plt.rcParams['font.family'] = prop.get_name()
         return prop
-    except Exception as e:
-        print(f"Error loading font file {font_path}: {e}")
+    else:
+        print("日本語フォントが見つかりませんでした。デフォルトフォントを使用します。")
         return None
 
-def create_and_save_graphs(df, title_base, filename_base, font_prop):
-    """Create and save graphs from a DataFrame."""
-    # pivot_tableを使って集計: 行=年, 列=area_type
-    pivot_df = df.groupby(['enactment_year', 'area_type']).size().unstack(fill_value=0)
+def create_and_save_graphs(df, group_col, title_base, filename_base, font_prop, legend_label, order_list=None):
+    # pivot_tableを使って集計: 行=年, 列=group_col
+    pivot_df = df.groupby(['enactment_year', group_col]).size().unstack(fill_value=0)
     
     if pivot_df.empty:
         print(f"No data to plot for {filename_base}.")
         return
 
-    # 積み上げ順序の指定（下から順に）
-    desired_order = ['区域設定なし', '抑制地区制', '禁止区域制', '2層構造(抑制+禁止)']
-    
-    # データに存在する列のみを抽出して並べ替え
-    existing_order = [col for col in desired_order if col in pivot_df.columns]
-    # 指定に含まれていない列（Unknownなど）は上部に配置
-    remaining_cols = [col for col in pivot_df.columns if col not in desired_order]
-    new_order = existing_order + remaining_cols
-    
-    pivot_df = pivot_df[new_order]
+    # 積み上げ順序の指定
+    if order_list:
+        # データに存在する列のみを抽出して並べ替え
+        existing_order = [col for col in order_list if col in pivot_df.columns]
+        # 指定に含まれていない列（Unknownなど）は上部に配置
+        remaining_cols = [col for col in pivot_df.columns if col not in order_list]
+        new_order = existing_order + remaining_cols
+        pivot_df = pivot_df[new_order]
 
     # フォント設定
     title_font = font_prop.copy() if font_prop else None
-    if title_font: title_font.set_size(16)
+    if title_font: title_font.set_size(22)
     
     label_font = font_prop.copy() if font_prop else None
-    if label_font: label_font.set_size(12)
+    if label_font: label_font.set_size(16)
 
     # --- グラフ1: 実数 ---
     # 新しいFigureを作成
@@ -48,10 +63,10 @@ def create_and_save_graphs(df, title_base, filename_base, font_prop):
     pivot_df.plot(kind='bar', stacked=True, ax=ax1, colormap='viridis', width=0.8)
     
     if font_prop:
-        ax1.set_title(f'{title_base}（地域区分別）', fontproperties=title_font)
+        ax1.set_title(f'{title_base}\n（{legend_label}別）', fontproperties=title_font)
         ax1.set_xlabel('制定年', fontproperties=label_font)
         ax1.set_ylabel('自治体数', fontproperties=label_font)
-        ax1.legend(title='地域区分', prop=label_font)
+        ax1.legend(title=legend_label, prop=label_font, title_fontproperties=label_font)
         # x軸ラベルの回転とフォント設定
         for label in ax1.get_xticklabels():
             label.set_rotation(45)
@@ -59,10 +74,10 @@ def create_and_save_graphs(df, title_base, filename_base, font_prop):
         for label in ax1.get_yticklabels():
             label.set_fontproperties(label_font)
     else:
-        ax1.set_title(f'{title_base} (by Area Type)')
+        ax1.set_title(f'{title_base} (by {legend_label})')
         ax1.set_xlabel('Enactment Year')
         ax1.set_ylabel('Count')
-        ax1.legend(title='Area Type')
+        ax1.legend(title=legend_label)
         plt.xticks(rotation=45)
 
     ax1.grid(axis='y', linestyle='--', alpha=0.7)
@@ -82,11 +97,11 @@ def create_and_save_graphs(df, title_base, filename_base, font_prop):
     pivot_df_ratio.plot(kind='bar', stacked=True, ax=ax2, colormap='viridis', width=0.8)
     
     if font_prop:
-        ax2.set_title(f'{title_base}割合（地域区分別）', fontproperties=title_font)
+        ax2.set_title(f'{title_base}割合\n（{legend_label}別）', fontproperties=title_font)
         ax2.set_xlabel('制定年', fontproperties=label_font)
         ax2.set_ylabel('割合 (%)', fontproperties=label_font)
         # 凡例をグラフの外に出す
-        ax2.legend(title='地域区分', prop=label_font, bbox_to_anchor=(1.01, 1), loc='upper left')
+        ax2.legend(title=legend_label, prop=label_font, bbox_to_anchor=(1.01, 1), loc='upper left', title_fontproperties=label_font)
         
         for label in ax2.get_xticklabels():
             label.set_rotation(45)
@@ -94,10 +109,10 @@ def create_and_save_graphs(df, title_base, filename_base, font_prop):
         for label in ax2.get_yticklabels():
             label.set_fontproperties(label_font)
     else:
-        ax2.set_title(f'{title_base} Ratio (by Area Type)')
+        ax2.set_title(f'{title_base} Ratio (by {legend_label})')
         ax2.set_xlabel('Enactment Year')
         ax2.set_ylabel('Ratio (%)')
-        ax2.legend(title='Area Type', bbox_to_anchor=(1.01, 1), loc='upper left')
+        ax2.legend(title=legend_label, bbox_to_anchor=(1.01, 1), loc='upper left')
         plt.xticks(rotation=45)
 
     ax2.grid(axis='y', linestyle='--', alpha=0.7)
@@ -110,23 +125,105 @@ def create_and_save_graphs(df, title_base, filename_base, font_prop):
     plt.close(fig2)
 
 def main():
-    """Main function."""
-    # フォントファイルのパス
-    font_path = 'NotoSansCJK-Regular.ttc'
+    # データベースパスの候補
+    db_paths = [
+        'clause-viewer/clause_data3.db',
+        'clause_data3.db'
+    ]
     
-    # フォントプロパティの取得
-    font_prop = get_font_properties(font_path)
-    
-    if font_prop:
-        print(f"Font loaded: {font_prop.get_name()}")
-    else:
-        print("日本語フォントが見つかりませんでした。デフォルトフォントを使用します。")
-    
-    # データの読み込み
-    df = pd.read_csv('data.csv')
-    
-    # グラフの生成
-    create_and_save_graphs(df, 'Title', 'filename', font_prop)
+    db_path = None
+    for path in db_paths:
+        if os.path.exists(path) and os.path.getsize(path) > 0:
+            db_path = path
+            break
+            
+    if not db_path:
+        print("Error: clause_data3.db not found or empty.")
+        return
 
-if __name__ == '__main__':
+    print(f"Using database: {db_path}")
+    conn = sqlite3.connect(db_path)
+    
+    # データを抽出するクエリ
+    # municipalitiesテーブルとparagraphsテーブルを結合
+    # 各自治体について、最も古いyearを取得してenactment_yearとする
+    # area_typeも取得
+    query = """
+    SELECT 
+        m.name as municipality_name,
+        m.area_type,
+        m.regulation_type,
+        m.resident_consent,
+        MIN(p.year) as enactment_year
+    FROM 
+        municipalities m
+    JOIN 
+        paragraphs p ON m.id = p.municipality_id
+    WHERE
+        p.year IS NOT NULL AND p.year != ''
+    GROUP BY 
+        m.id
+    """
+    
+    try:
+        df = pd.read_sql_query(query, conn)
+    except Exception as e:
+        print(f"Error executing query: {e}")
+        conn.close()
+        return
+    
+    conn.close()
+    
+    if df.empty:
+        print("No data found.")
+        return
+
+    print(f"Extracted {len(df)} records.")
+
+    # enactment_yearのクリーニング
+    # 4桁の数字を抽出
+    df['enactment_year_clean'] = df['enactment_year'].astype(str).apply(lambda x: re.search(r'(\d{4})', x).group(1) if re.search(r'(\d{4})', x) else None)
+    
+    df = df.dropna(subset=['enactment_year_clean'])
+    df['enactment_year'] = df['enactment_year_clean'].astype(int)
+    
+    # 異常な年のフィルタリング（1990年〜2030年）
+    df = df[(df['enactment_year'] >= 1990) & (df['enactment_year'] <= 2030)]
+
+    # area_typeの欠損処理
+    df['area_type'] = df['area_type'].fillna('Unknown')
+    df.loc[df['area_type'] == '', 'area_type'] = 'Unknown'
+    
+    # regulation_typeの欠損処理
+    df['regulation_type'] = df['regulation_type'].fillna('Unknown')
+    df.loc[df['regulation_type'] == '', 'regulation_type'] = 'Unknown'
+    
+    # resident_consentの欠損処理
+    df['resident_consent'] = df['resident_consent'].fillna('')
+
+    # グラフ作成
+    font_prop = set_japanese_font()
+    # area_type 用の設定
+    area_order = ['区域設定なし', '抑制地区制', '禁止地区制', '2層構造(抑制+禁止)']
+    
+    # 1. 全自治体
+    print("\n--- Generating graphs for ALL municipalities ---")
+    # Area Type
+    create_and_save_graphs(df, 'area_type', '制定年ごとの自治体数', 'enactment_year_area', font_prop, '地域区分', area_order)
+    # Regulation Type
+    create_and_save_graphs(df, 'regulation_type', '制定年ごとの自治体数', 'enactment_year_reg', font_prop, '条例タイプ')
+    
+    # 2. 住民同意要件あり ('有') の自治体
+    print("\n--- Generating graphs for municipalities with Resident Consent ---")
+    df_consent = df[df['resident_consent'] == '有']
+    if not df_consent.empty:
+        print(f"Found {len(df_consent)} municipalities with resident consent.")
+        # Area Type
+        create_and_save_graphs(df_consent, 'area_type', '制定年ごとの自治体数（住民同意要件あり）', 'enactment_year_consent_area', font_prop, '地域区分', area_order)
+        # Regulation Type
+        create_and_save_graphs(df_consent, 'regulation_type', '制定年ごとの自治体数（住民同意要件あり）', 'enactment_year_consent_reg', font_prop, '条例タイプ')
+    else:
+        print("No municipalities found with resident_consent = '有'")
+
+if __name__ == "__main__":
     main()
