@@ -3,11 +3,12 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import os
+from pathlib import Path
+from versioning.filename import make_dated_versioned_path
 
 # Configuration
 DB_PATH = 'clause-viewer/clause_data3.db'
 OUTPUT_CSV = 'analysis_result.csv'
-OUTPUT_IMG = 'modal_associations_by_regulation.png'
 FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' # Fallback font if needed, though matplotlib usually handles it.
 # If Japanese characters are needed in the plot, we might need a specific font.
 # I'll stick to English labels for the plot to avoid font issues unless the user strictly required Japanese in the plot (they asked for Japanese conversation, but plot labels are often better in English or might break).
@@ -111,7 +112,7 @@ def calculate_associations(df):
 
     return pd.DataFrame(results)
 
-def plot_results(df_results):
+def plot_results(df_results, output_path):
     # Melt for plotting
     df_melt = df_results.melt(
         id_vars=['Regulation_Type', 'Clause'],
@@ -126,12 +127,14 @@ def plot_results(df_results):
         'Rate_SHOULD': 'SHOULD'
     })
 
-    # Filter out 'Overall' for the grouped plot, or maybe include it?
-    # The user asked to examine the difference by regulation type.
-    # Let's plot the Regulation Types (excluding Overall for the main comparison plot to avoid clutter, or separate them).
-    # Let's stick to Regulation Types only for the main visualization as requested.
-
-    plot_data = df_melt[df_melt['Regulation_Type'] != 'Overall']
+    # Map Clause names to shorter labels
+    CLAUSE_LABEL_MAP = {
+        '*CLAUSE_POSITIVE_PERMISSION_CONSENT': 'Positive\nPermission\nConsent',
+        '*CLAUSE_ZONE_Lv1': 'Zone Lv1',
+        '*CLAUSE_ZONE_Lv2': 'Zone Lv2',
+        '*CLAUSE_ENVIRONMENT': 'Environment'
+    }
+    df_melt['Clause'] = df_melt['Clause'].map(lambda x: CLAUSE_LABEL_MAP.get(x, x))
 
     # Set up the plot
     sns.set_theme(style="whitegrid")
@@ -142,30 +145,43 @@ def plot_results(df_results):
     # Hue: Modal
     # Col: Regulation Type
 
+    # Define order
+    col_order = ['Overall', 'Notification Dominant', 'Permission Dominant']
+
     g = sns.catplot(
-        data=plot_data,
+        data=df_melt,
         x='Clause',
         y='Cooccurrence_Rate',
         hue='Modal_Type',
         col='Regulation_Type',
+        col_order=col_order,
         kind='bar',
         height=5,
-        aspect=1.2,
-        palette="muted"
+        aspect=1.0, # Slightly narrower to fit 3 columns better if needed, or keep 1.2
+        palette="muted",
+        legend_out=False # Keep legend inside to move it manually
     )
 
     g.set_axis_labels("Clause Coding", "Co-occurrence Rate")
     g.set_titles("{col_name}")
 
+    # Move legend to upper left of the first subplot
+    # bbox_to_anchor is relative to the axes if we use g.ax or similar, but catplot returns a FacetGrid.
+    # sns.move_legend on FacetGrid usually targets the legend object.
+    # If we want it in the first subplot, we might need to be careful.
+    # The previous setting (0.08, 0.95) worked for the 2-column plot (where the first col was Notification Dominant).
+    # It should work for the 3-column plot too, placing it in the first column (Overall).
+    sns.move_legend(g, "upper left", bbox_to_anchor=(0.07, 0.95))
+
     # Rotate x-axis labels
     for ax in g.axes.flat:
         for label in ax.get_xticklabels():
-            label.set_rotation(45)
-            label.set_ha('right')
+            label.set_rotation(0) # No rotation needed if labels are short/multiline
+            label.set_ha('center')
 
     plt.tight_layout()
-    plt.savefig(OUTPUT_IMG)
-    print(f"Plot saved to {OUTPUT_IMG}")
+    plt.savefig(output_path)
+    print(f"Plot saved to {output_path}")
 
 def main():
     print("Loading data...")
@@ -195,7 +211,11 @@ def main():
     df_results_plot = df_results.copy()
     df_results_plot['Regulation_Type'] = df_results_plot['Regulation_Type'].map(lambda x: reg_map.get(x, x))
 
-    plot_results(df_results_plot)
+    output_dir = Path('out/modal_association')
+    
+    # Plot all in one
+    output_path = make_dated_versioned_path(output_dir, 'modal_associations_combined_', '.png')
+    plot_results(df_results_plot, output_path)
 
     print("Done.")
 

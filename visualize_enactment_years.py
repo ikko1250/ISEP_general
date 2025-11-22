@@ -84,7 +84,9 @@ def create_and_save_graphs(df, group_col, title_base, filename_base, font_prop, 
     plt.tight_layout()
     
     # バージョン付きファイル名で保存
-    output_path_count = make_dated_versioned_path(Path('.'), f'{filename_base}_count_', '.png')
+    output_dir = Path('out/enactment_analyze')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path_count = make_dated_versioned_path(output_dir, f'{filename_base}_count_', '.png')
     plt.savefig(output_path_count)
     print(f"Count graph saved to {output_path_count}")
     plt.close(fig1)
@@ -119,7 +121,7 @@ def create_and_save_graphs(df, group_col, title_base, filename_base, font_prop, 
     plt.tight_layout()
     
     # バージョン付きファイル名で保存
-    output_path_ratio = make_dated_versioned_path(Path('.'), f'{filename_base}_ratio_', '.png')
+    output_path_ratio = make_dated_versioned_path(output_dir, f'{filename_base}_ratio_', '.png')
     plt.savefig(output_path_ratio)
     print(f"Ratio graph saved to {output_path_ratio}")
     plt.close(fig2)
