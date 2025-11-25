@@ -8,13 +8,15 @@ import re
 import sys
 import traceback
 
+import sqlite3
+
 # --- 設定 ---
 # 実行環境に合わせてパスを確認してください
 BASE_DIR = '/home/ubuntu/cur/isep'
-INPUT_JSON_PATH = os.path.join(BASE_DIR, 'clause-viewer/data-integrated.json')
+INPUT_DB_PATH = os.path.join(BASE_DIR, 'clause-viewer/clause_data3.db')
 MECAB_USER_DICT_PATH = os.path.join(BASE_DIR, 'solar_ordinance_userdic_mecab_safe_refined.csv')
-FORCED_EXTRACTION_PATH = os.path.join(BASE_DIR, '強制抽出_v2.0.txt')
-CODING_RULES_PATH = os.path.join(BASE_DIR, 'khcoder_coding_rules_PV_v3.5.txt')
+FORCED_EXTRACTION_PATH = os.path.join(BASE_DIR, '強制抽出_v3.txt')
+CODING_RULES_PATH = os.path.join(BASE_DIR, 'khcoder_coding_rules_PV_v4.txt')
 SUDACHI_USER_DICT_CSV_PATH = os.path.join(BASE_DIR, 'sudachi_user.csv')
 SUDACHI_USER_DICT_PATH = os.path.join(BASE_DIR, 'sudachi_user.dic')
 SUDACHI_CONFIG_PATH = os.path.join(BASE_DIR, 'sudachi_config.json')
@@ -303,15 +305,44 @@ def analyze_text():
     mode = tokenizer.Tokenizer.SplitMode.C
     coding_rules = load_coding_rules()
 
-    # JSON読み込み
-    if not os.path.exists(INPUT_JSON_PATH):
-        print(f"入力ファイルなし: {INPUT_JSON_PATH}")
+    # DB読み込み
+    if not os.path.exists(INPUT_DB_PATH):
+        print(f"入力ファイルなし: {INPUT_DB_PATH}")
         return
 
-    print(f"データ読み込み中: {INPUT_JSON_PATH}")
-    with open(INPUT_JSON_PATH, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    paragraphs = data.get('paragraphs', [])
+    print(f"データ読み込み中: {INPUT_DB_PATH}")
+    try:
+        conn = sqlite3.connect(INPUT_DB_PATH)
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT 
+                p.text, 
+                p.id, 
+                m.name as municipality, 
+                p.h5, 
+                p.dan_number as dan 
+            FROM paragraphs p 
+            JOIN municipalities m ON p.municipality_id = m.id
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        
+        paragraphs = []
+        for row in rows:
+            paragraphs.append({
+                'text': row[0],
+                'id': row[1],
+                'municipality': row[2],
+                'h5': row[3],
+                'dan': row[4]
+            })
+            
+        conn.close()
+    except Exception as e:
+        print(f"DB読み込みエラー: {e}")
+        return
+
     print(f"対象段落数: {len(paragraphs)}")
 
     # 出力ファイル準備
