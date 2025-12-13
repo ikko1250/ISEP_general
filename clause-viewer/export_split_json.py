@@ -8,8 +8,8 @@ import os
 
 # --- 設定 ---
 BASE_DIR = Path('/home/ubuntu/cur/isep')
-# 統一: 最新のスキーマ(clause_data3.db)を使用
-DB_PATH = BASE_DIR / 'clause-viewer/clause_data3.db'
+# 統一: 最新のスキーマ(clause_data4.db)を使用
+DB_PATH = BASE_DIR / 'clause-viewer/clause_data4.db'
 OUTPUT_DIR = BASE_DIR / 'clause-viewer/data'
 MUNICS_DIR = OUTPUT_DIR / 'municipalities'
 

@@ -5,10 +5,10 @@ from tqdm import tqdm
 
 # --- 設定 ---
 BASE_DIR = Path('/home/ubuntu/cur/isep')
-DB_PATH = BASE_DIR / 'clause-viewer/clause_data3.db'
-MAIN_CSV_PATH = BASE_DIR / 'main5.2.csv'
-CODING_CSV_PATH = BASE_DIR / 'clause-viewer/v5.2_dan_vs_munic._table.csv'
-ANALYSIS_CSV_PATH = BASE_DIR / 'Classification_munic_2025-11-18.v.3.csv'
+DB_PATH = BASE_DIR / 'clause-viewer/clause_data4.db'
+MAIN_CSV_PATH = BASE_DIR / 'texts/main4.3_2025-11-17.v.3.csv'
+CODING_CSV_PATH = BASE_DIR / 'dan_vs_coding_v.7.csv'
+ANALYSIS_CSV_PATH = BASE_DIR / 'Classification_munic_2025-11-28.v.1.csv'
 
 def import_municipalities(conn):
     """自治体データをインポート"""

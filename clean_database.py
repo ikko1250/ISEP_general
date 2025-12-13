@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-db_path = os.path.join(os.path.dirname(__file__), 'clause-viewer/clause_data3.db')
+db_path = os.path.join(os.path.dirname(__file__), 'clause-viewer/clause_data4.db')
 
 def is_clean_text(text):
     if not text:

@@ -1,9 +1,6 @@
 *.deb
 *.pdf
-*.txt
-*.csv
 *.json
-*.png
 *.jpg
 OpenManus/
 mcp-brave-search/

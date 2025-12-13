@@ -48,7 +48,7 @@ def extract_articles(html: str) -> List[str]:
         rt.decompose()
     for ruby in primary.find_all("ruby"):
         ruby.unwrap()
-
+ 
     # 表: <table> を削除。captionがあれば直前に生テキストとして残す
     for tbl in primary.find_all("table"):
         caption_text = None

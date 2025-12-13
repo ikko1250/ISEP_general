@@ -1,0 +1,260 @@
+import pandas as pd
+import re
+import os
+import glob
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+import platform
+
+def analyze_solar_zones(file_path):
+    """
+    太陽光発電規制条例の抑制区域条文を分析する関数
+    (Ver.3.4: 円グラフによる可視化機能付き)
+    """
+    print(f"[{file_path}] の分析を開始します (Ver.3.4)...")
+
+    # --- ファイル存在確認と診断 ---
+    if not os.path.exists(file_path):
+        print(f"\n[エラー] 指定されたファイルが見つかりません: {file_path}")
+        print(f"現在のディレクトリ: {os.getcwd()}")
+        # CSVファイルの候補を探す
+        files = os.listdir()
+        csv_files = [f for f in files if f.endswith('.csv')]
+        if csv_files:
+            print("もしかして: " + ", ".join([f"'{f}'" for f in csv_files]))
+        return
+
+    # データの読み込み
+    try:
+        df = pd.read_csv(file_path)
+    except Exception as e:
+        print(f"ファイルの読み込みに失敗しました: {e}")
+        return
+
+    target_col = 'text'
+    if target_col not in df.columns:
+        print(f"エラー: '{target_col}' カラムが見つかりません。")
+        return
+
+    # --- 1. 条文の分解 ---
+    def split_clause(text):
+        if pd.isna(text):
+            return []
+        text = str(text).replace('\n', '')
+        # 分割パターン
+        split_pattern = r'(?:[\(（]\d+[\)）]|[①-⑳]|\d+\.|[\(（][ア-ン][\)）]|[ア-ン]\.)'
+        parts = re.split(split_pattern, text)
+        cleaned_parts = []
+        for part in parts:
+            part = part.strip().strip('。、, 　')
+            if len(part) > 3: 
+                cleaned_parts.append(part)
+        return cleaned_parts
+
+    all_segments = []
+    for _, row in df.iterrows():
+        segments = split_clause(row[target_col])
+        municipality = row.get('municipality_name', '不明')
+        row_id = row.get('id', '')
+        for seg in segments:
+            all_segments.append({
+                'id': row_id,
+                'municipality': municipality,
+                'original_text': seg
+            })
+
+    segment_df = pd.DataFrame(all_segments)
+    if len(segment_df) == 0:
+        print("抽出データなし")
+        return
+
+    # --- 2. 分類ロジック (Ver.3.3 ベース) ---
+
+    def classify_segment(text):
+        # 1. 除外対象: リード文
+        lead_keywords = [
+            r'^第\d+条', r'^\d+\s+市長は', r'次に掲げる', r'抑制区域とする', 
+            r'指定することができる', r'事業を行わないよう', r'同意を得なければ', 
+            r'別表第', r'定義する'
+        ]
+        for pat in lead_keywords:
+            if re.search(pat, text):
+                if not re.search(r'法第\d+条|法律第\d+号', text):
+                    return False, "除外: リード文・条文番号"
+
+        # 2. 法令に基づく指定
+        legal_patterns = [
+            (r'農地法|農業振興|農用地区域|農振法', "法令: 農地・農業振興"),
+            (r'森林法|保安林|地域森林計画', "法令: 森林・保安林"),
+            (r'砂防法|砂防指定地', "法令: 砂防指定地"),
+            (r'地すべり等防止法|地すべり防止区域', "法令: 地すべり防止区域"), 
+            (r'急傾斜地法|急傾斜地崩壊危険区域', "法令: 急傾斜地崩壊危険区域"), 
+            (r'自然公園法|国立公園|国定公園|県立自然公園', "法令: 自然公園"),
+            (r'自然環境保全法|自然環境保全地域', "法令: 自然環境保全法"),
+            (r'鳥獣保護|鳥獣捕獲', "法令: 鳥獣保護区"),
+            (r'文化財保護|指定.*文化財|登録.*文化財|埋蔵文化財|史跡名勝天然記念物', "法令: 文化財・史跡"),
+            (r'都市計画法|風致地区|市街化調整区域', "法令: 都市計画(風致・調整区域等)"),
+            (r'都市緑地法|緑地保全地域|特別緑地保全地区', "法令: 都市緑地法・緑地保全"),
+            (r'生産緑地法|生産緑地地区', "法令: 生産緑地法"),
+            (r'景観法|景観計画|景観地区', "法令: 景観法・景観計画"),
+            (r'河川法|河川区域|河川保全区域', "法令: 河川法"),
+            (r'水防法|浸水想定区域', "法令: 水防法・浸水想定"),
+            (r'宅地造成', "法令: 宅地造成規制区域"),
+            (r'津波防災地域づくり|津波災害警戒区域', "法令: 津波防災・津波災害"),
+            (r'特定都市河川浸水被害対策法', "法令: 特定都市河川浸水被害対策法"),
+            (r'土砂災害防止法|土砂災害警戒区域|土砂災害特別警戒区域', "法令: 土砂災害防止法"),
+            
+            # キャッチオール的な法令判定
+            (r'法第\d+条|法律第\d+号|県条例|市条例', "法令: その他/特定法令")
+        ]
+        for pattern, category in legal_patterns:
+            if re.search(pattern, text):
+                return True, category
+
+        # 3. 定性的な記述
+        qualitative_patterns = [
+            (r'土砂災害|崩壊|地盤|崖崩れ|防災|災害|地すべり|急傾斜', "定性: 災害リスク・防災"), 
+            (r'景観|眺望|風致', "定性: 景観・風致"),
+            (r'自然|生態系|里山|緑地|植生|生息|湿原|鳥獣', "定性: 自然環境・生態系"),
+            (r'歴史|文化|郷土|伝統|遺産|史跡|名勝|天然記念物', "定性: 歴史・文化"), 
+            (r'住環境|生活|静穏|住宅', "定性: 住環境・生活環境"),
+            (r'シンボル|象徴|ランドマーク', "定性: 地域のシンボル"),
+            (r'道路|河川|国道|県道', "定性: 道路・河川隣接"),
+            (r'学校|病院|公共施設|福祉', "定性: 公共・福祉施設周辺"),
+            (r'農地|山林|農林', "定性: 農地・山林(法令言及なし)"),
+            (r'公園|広場', "定性: 公園・広場")
+        ]
+        for pattern, category in qualitative_patterns:
+            if re.search(pattern, text):
+                return False, category
+
+        # 4. 除外対象: 包括条項
+        catch_all_keywords = [
+            r'前各号', r'前号', r'その他.*市長', r'その他.*規則', 
+            r'必要と認め', r'準ずる', r'配慮が必要', r'著しい影響',
+            r'その他.*区域'
+        ]
+        for pat in catch_all_keywords:
+            if re.search(pat, text):
+                return False, "除外: 包括条項・その他"
+
+        return False, "その他/不明"
+
+    segment_df[['is_legal_based', 'category']] = segment_df['original_text'].apply(
+        lambda x: pd.Series(classify_segment(x))
+    )
+
+    # --- 3. 統計情報の集計 ---
+    valid_df = segment_df[~segment_df['category'].str.startswith('除外')]
+    category_counts = valid_df['category'].value_counts()
+    
+    print("--- 【分析結果】有効な区域指定カテゴリ別出現数 ---")
+    print(category_counts.to_string())
+    print("-" * 30 + "\n")
+
+    # --- 4. 可視化 (帯グラフ/横棒グラフ) ---
+    print("--- グラフ描画中 ---")
+    
+    # 日本語フォントの設定 (環境依存を吸収する試み)
+    system_name = platform.system()
+    font_path = None
+    
+    # 一般的な日本語フォントの候補
+    jp_fonts = [
+        'Meiryo', 'Yu Gothic', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
+        'MS Gothic', 'TakaoGothic', 'IPAGothic', 'Noto Sans CJK JP', 'Noto Sans JP'
+    ]
+    
+    # Matplotlibのフォントマネージャから利用可能なフォントを探す
+    available_fonts = set([f.name for f in fm.fontManager.ttflist])
+    found_font = None
+    for font in jp_fonts:
+        if font in available_fonts:
+            found_font = font
+            break
+            
+    if found_font:
+        plt.rcParams['font.family'] = found_font
+        print(f"フォント設定: {found_font}")
+    else:
+        print("※日本語フォントが自動検出できませんでした。グラフの文字が豆腐(□)になる可能性があります。")
+        plt.rcParams['font.family'] = 'sans-serif'
+
+    # データ準備
+    total = category_counts.sum()
+    threshold = 0.012  # 1.2%
+    
+    # 1.2%以上のカテゴリと未満のカテゴリを分離
+    major_categories = category_counts[category_counts / total >= threshold].copy()
+    minor_categories = category_counts[category_counts / total < threshold]
+    
+    # 少数カテゴリを「その他（少数カテゴリ）」として統合
+    if len(minor_categories) > 0:
+        minor_total = minor_categories.sum()
+        minor_label = f"その他（少数 {len(minor_categories)}種）"
+        major_categories[minor_label] = minor_total
+        print(f"※ 1.2%未満の少数カテゴリ {len(minor_categories)}種を統合しました（計{minor_total}件）")
+        print(f"  統合されたカテゴリ: {', '.join(minor_categories.index.tolist())}")
+    
+    # ソートし直す（件数降順 → 帯グラフでは下から上に表示されるので昇順に）
+    category_counts_merged = major_categories.sort_values(ascending=True)
+    
+    labels = category_counts_merged.index
+    sizes = category_counts_merged.values
+    percentages = sizes / total * 100
+
+    # グラフのサイズ設定
+    n_categories = len(labels)
+    fig_height = max(8, n_categories * 0.6)  # カテゴリ数に応じて高さ調整
+    fig, ax = plt.subplots(figsize=(14, fig_height))
+
+    # 色の準備（タブ20色を使用）
+    colors = [plt.cm.tab20(i % 20) for i in range(len(labels))]
+
+    # 横棒グラフ描画
+    bars = ax.barh(labels, sizes, color=colors, edgecolor='white', linewidth=0.5)
+
+    # 各バーに件数と%を表示（バーの外側に黒字で統一）
+    for bar, count, pct in zip(bars, sizes, percentages):
+        width = bar.get_width()
+        ax.text(width + 5, bar.get_y() + bar.get_height()/2, 
+                f'{count}件 ({pct:.1f}%)', 
+                ha='left', va='center', fontsize=11, color='black')
+
+    # 軸とタイトルの設定
+    ax.set_xlabel('件数', fontsize=14)
+    ax.set_title(f'太陽光発電規制条例 抑制区域の指定事由内訳\n（総数: {total}件）', fontsize=18, fontweight='bold')
+    ax.set_xlim(0, max(sizes) * 1.15)  # 右端に余白
+    
+    # Y軸ラベルのフォントサイズ調整
+    ax.tick_params(axis='y', labelsize=12)
+    ax.tick_params(axis='x', labelsize=11)
+    
+    # グリッド線（薄く）
+    ax.xaxis.grid(True, linestyle='--', alpha=0.3)
+    ax.set_axisbelow(True)
+    
+    # 枠線を薄く
+    for spine in ax.spines.values():
+        spine.set_alpha(0.3)
+
+    plt.tight_layout()
+
+    # 画像保存
+    graph_filename = "solar_zone_bar_chart.png"
+    plt.savefig(graph_filename, dpi=150, bbox_inches='tight')
+    print(f"\n[完了] 帯グラフを保存しました: {graph_filename}")
+    
+    # CSV出力
+    output_filename = "solar_zone_classification_results_v3.4.csv"
+    try:
+        segment_df.to_csv(output_filename, index=False, encoding='utf-8-sig')
+        print(f"[完了] データCSVを保存しました: {output_filename}")
+    except Exception as e:
+        print(f"[エラー] CSV保存失敗: {e}")
+
+    return segment_df
+
+if __name__ == "__main__":
+    file_path = '/home/ubuntu/cur/isep/CLAUSE_ZONE_Lv1_direct_designation.csv'
+    analyze_solar_zones(file_path)

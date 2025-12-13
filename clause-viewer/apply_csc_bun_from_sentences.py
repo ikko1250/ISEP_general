@@ -5,8 +5,8 @@ import pandas as pd
 
 # 設定
 BASE_DIR = Path('/home/ubuntu/cur/isep')
-DB_PATH = BASE_DIR / 'clause-viewer/clause_data3.db'
-BUN_CSV_PATH = BASE_DIR / 'clause-viewer/v5.2_bun_vs_munic._table.csv'
+DB_PATH = BASE_DIR / 'clause-viewer/clause_data4.db'
+BUN_CSV_PATH = BASE_DIR / 'bun_vs_coding_v.7.csv'
 
 TARGET_COL = '*CLAUSE_STAKEHOLDER_CONFIRMATION'
 AGG_CODE = '*CSC_bun'
