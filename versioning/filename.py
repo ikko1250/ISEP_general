@@ -34,8 +34,7 @@ def make_dated_versioned_path(directory: Path, prefix: str, suffix: str) -> Path
 
     max_n = 0
     for p in directory.iterdir():
-        if not p.is_file():
-            continue
+
         m = pattern.match(p.name)
         if m:
             try:
