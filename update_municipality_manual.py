@@ -4,7 +4,7 @@ import os
 import sys
 
 # Configuration
-DB_PATH = os.path.join(os.path.dirname(__file__), 'clause-viewer/clause_data3.db')
+DB_PATH = os.path.join(os.path.dirname(__file__), 'clause-viewer/clause_data4.db')
 CSV_PATH = os.path.join(os.path.dirname(__file__), 'manual_updates.csv')
 
 def update_db_from_csv():

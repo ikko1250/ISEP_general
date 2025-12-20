@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import platform
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def analyze_solar_zones(file_path):
     """
     太陽光発電規制条例の抑制区域条文を分析する関数
@@ -68,21 +70,119 @@ def analyze_solar_zones(file_path):
         print("抽出データなし")
         return
 
-    # --- 2. 分類ロジック (Ver.3.3 ベース) ---
+    # --- 2. 分類ロジック (Ver.3.4 拡充版) ---
 
     def classify_segment(text):
-        # 1. 除外対象: リード文
+        # 1. 除外対象: リード文・条文番号
         lead_keywords = [
-            r'^第\d+条', r'^\d+\s+市長は', r'次に掲げる', r'抑制区域とする', 
-            r'指定することができる', r'事業を行わないよう', r'同意を得なければ', 
-            r'別表第', r'定義する'
+            r'^第\d+条', r'^\d+\s+市長は', r'次に掲げる', 
+            r'抑制区域とする', r'禁止区域とする', r'指定する区域',
+            r'指定することができる', r'事業を行わないよう',
+            r'事業を実施してはならない', r'含めてはならない',
+            r'同意を得なければ', r'別表第', r'定義する',
+            r'次のとおりとする', r'いずれかの区域とする',
+            r'次の各号', r'事業区域としてはならない',
         ]
+
         for pat in lead_keywords:
             if re.search(pat, text):
                 if not re.search(r'法第\d+条|法律第\d+号', text):
                     return False, "除外: リード文・条文番号"
+        
+        # 1.5. 除外対象: 手続き関連条文（区域指定ではない）
+        procedure_keywords = [
+            r'許可を受けなければ|許可の申請|申請があったとき',
+            r'届け出なければ|届出の受理|届け出ることはできない',
+            r'同意しないものとする|同意しないこと',
+            r'協議しなければならない|協議を行',
+            r'勧告することができる|命ずることができる',
+            r'違反し|罰則|公表する',
+            r'施行日|附則|経過措置',
+            r'キロワット未満|キロワット以上|平方メートル',
+            r'建築物の屋根又は屋上',
+            r'抑制区域とみなす',
+            r'面積の縮小|面積の.*拡大',
+            r'工事施工者の変更|設計者.*変更',
+            r'事業着手.*変更|完了.*変更',
+            r'規則で定めるところにより',
+            r'総合計画.*適合|都市計画.*適合',
+            r'措置が講じられている',
+            r'関係町内会等の同意',
+            r'説明会|協議を適切に',
+            r'虚偽の.*届出|虚偽の.*協議',
+            r'聴取を要さない',
+            r'該当しないもの',
+        ]
+        
+        for pat in procedure_keywords:
+            if re.search(pat, text):
+                return False, "除外: 手続き・適用範囲条文"
+        
+        # 1.6. 除外対象: 別図・別表参照のみ
+        reference_keywords = [
+            r'前\d+号に掲げる区域.*別図',
+            r'^別表.*に掲げる区域$',
+            r'^規則で定める区域$',
+            r'一体的な区域として別図',
+        ]
+        
+        for pat in reference_keywords:
+            if re.search(pat, text):
+                return False, "除外: 別図・別表参照"
+        
+        # 1.7. 除外対象: 定義条文 (〜をいう)
+        definition_keywords = [
+            r'をいう$|をいう。$',
+            r'^再生可能エネルギー\s',
+            r'^事業者\s|^事業区域\s|^地域\s',
+            r'^住民等\s|^行政区',
+        ]
+        
+        for pat in definition_keywords:
+            if re.search(pat, text):
+                return False, "除外: 定義条文"
+        
+        # 1.8. 除外対象: 罰則・勧告対象行為、許可基準の項目
+        sanction_keywords = [
+            r'着手したとき|従わなかったとき',
+            r'講じなかったとき|怠り',
+            r'拒み|妨げ|忌避|答弁',
+            r'被害を与えたとき|被害を与えるおそれ',
+            r'禁止区域を含まないこと',
+            r'を設置したとき$',
+            r'営牧場.*区域',
+            r'事前確認を行わなければ',
+            r'努めなければならない$',
+        ]
+        
+        for pat in sanction_keywords:
+            if re.search(pat, text):
+                return False, "除外: 罰則・許可基準"
+        
+        # 1.8.5. 除外対象: 許可基準適合条件
+        approval_criteria_keywords = [
+            r'基準に適合していること',
+            r'写し$|写し。$',
+            r'^現況|^土地利用|^雨水|^排水|^求積',
+        ]
+        
+        for pat in approval_criteria_keywords:
+            if re.search(pat, text):
+                return False, "除外: 許可基準・書類"
+        
+        # 1.9. 除外対象: 禁止区域の定義（禁止区域を除く残り）
+        zone_definition_keywords = [
+            r'禁止区域を除く区域',
+            r'禁止区域・抑制区域の確認',
+            r'^事業禁止区域$|^禁止区域$|^抑制区域$',
+        ]
+        
+        for pat in zone_definition_keywords:
+            if re.search(pat, text):
+                return False, "除外: 区域定義・確認"
 
         # 2. 法令に基づく指定
+
         legal_patterns = [
             (r'農地法|農業振興|農用地区域|農振法', "法令: 農地・農業振興"),
             (r'森林法|保安林|地域森林計画', "法令: 森林・保安林"),
@@ -103,9 +203,10 @@ def analyze_solar_zones(file_path):
             (r'津波防災地域づくり|津波災害警戒区域', "法令: 津波防災・津波災害"),
             (r'特定都市河川浸水被害対策法', "法令: 特定都市河川浸水被害対策法"),
             (r'土砂災害防止法|土砂災害警戒区域|土砂災害特別警戒区域', "法令: 土砂災害防止法"),
+            (r'水資源保全|水環境保全', "法令: 水資源・水環境保全"),
             
             # キャッチオール的な法令判定
-            (r'法第\d+条|法律第\d+号|県条例|市条例', "法令: その他/特定法令")
+            (r'法第\d+条|法律第\d+号|県条例|市条例|町条例|村条例', "法令: その他/特定法令")
         ]
         for pattern, category in legal_patterns:
             if re.search(pattern, text):
@@ -113,7 +214,7 @@ def analyze_solar_zones(file_path):
 
         # 3. 定性的な記述
         qualitative_patterns = [
-            (r'土砂災害|崩壊|地盤|崖崩れ|防災|災害|地すべり|急傾斜', "定性: 災害リスク・防災"), 
+            (r'土砂災害|崩壊|地盤|崖崩れ|防災|災害|地すべり|急傾斜|斜度\d+度|勾配', "定性: 災害リスク・防災"), 
             (r'景観|眺望|風致', "定性: 景観・風致"),
             (r'自然|生態系|里山|緑地|植生|生息|湿原|鳥獣', "定性: 自然環境・生態系"),
             (r'歴史|文化|郷土|伝統|遺産|史跡|名勝|天然記念物', "定性: 歴史・文化"), 
@@ -139,6 +240,7 @@ def analyze_solar_zones(file_path):
                 return False, "除外: 包括条項・その他"
 
         return False, "その他/不明"
+
 
     segment_df[['is_legal_based', 'category']] = segment_df['original_text'].apply(
         lambda x: pd.Series(classify_segment(x))
@@ -241,12 +343,12 @@ def analyze_solar_zones(file_path):
     plt.tight_layout()
 
     # 画像保存
-    graph_filename = "solar_zone_bar_chart.png"
+    graph_filename = os.path.join(BASE_DIR, "solar_zone_bar_chart.png")
     plt.savefig(graph_filename, dpi=150, bbox_inches='tight')
     print(f"\n[完了] 帯グラフを保存しました: {graph_filename}")
     
     # CSV出力
-    output_filename = "solar_zone_classification_results_v3.4.csv"
+    output_filename = os.path.join(BASE_DIR, "solar_zone_classification_results_v3.4.csv")
     try:
         segment_df.to_csv(output_filename, index=False, encoding='utf-8-sig')
         print(f"[完了] データCSVを保存しました: {output_filename}")

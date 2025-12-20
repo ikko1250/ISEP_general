@@ -402,11 +402,11 @@ def create_categorized_chart(df, output_path):
     plt.close()
     print(f"\nカテゴリ別グラフを保存しました: {output_path}")
 
-def categorize_8level(row):
+def categorize_7level(row):
     """規制単位、area_type、regulation_typeを考慮して8段階に分類する
     
     カテゴリ:
-    - 0_Lv1,2複合型: Lv2(条件付き禁止/絶対禁止) + Lv1(許可/同意/禁止)
+    - 0_Lv1,2複合型: Lv2(条件付き禁止/絶対禁止) + Lv1(許可/同意/禁止)、またはLv2 + 手続
     - 1a_Lv2(区域・許可制優位)
     - 1b_Lv2(区域・届出制優位)
     - 2_Lv1不同意(禁止)
@@ -467,8 +467,8 @@ def categorize_8level(row):
         return '6_区域なし+許可制'
     return '7_届出・協議のみ'
 
-def get_8level_stats(conn):
-    """規制単位を8段階にグループ化した統計を取得（自治体レベルで分類）"""
+def get_7level_stats(conn):
+    """規制単位を7段階にグループ化した統計を取得（自治体レベルで分類）"""
     # 罰則コーディングIDを取得
     cursor = conn.execute("SELECT id FROM coding_types WHERE code = ?", ('*CLAUSE_PENALTY',))
     result = cursor.fetchone()
@@ -491,11 +491,11 @@ def get_8level_stats(conn):
     
     for muni_id, muni_name, reg_unit, area_type, regulation_type in municipalities:
         row = {'規制単位': reg_unit or '', 'area_type': area_type or '', 'regulation_type': regulation_type or ''}
-        category = categorize_8level(row)
+        category = categorize_7level(row)
         
         if category not in category_stats:
             category_stats[category] = {
-                '8段階': category,
+                '7段階': category,
                 '自治体数': 0,
                 '条文総数': 0,
                 '*Administrative_Guidance': 0,
@@ -531,15 +531,15 @@ def get_8level_stats(conn):
                     category_stats[category]['*CLAUSE_PENALTY_OTHER'] += 1
     
     df = pd.DataFrame(list(category_stats.values()))
-    df = df.sort_values('8段階')
+    df = df.sort_values('7段階')
     return df
 
-def create_8level_chart(df, output_path):
-    """8段階比較の帯グラフを作成"""
-    df_sorted = df.sort_values('8段階')
+def create_7level_chart(df, output_path):
+    """7段階比較の帯グラフを作成"""
+    df_sorted = df.sort_values('7段階')
     
     df_plot = pd.DataFrame()
-    df_plot['8段階'] = df_sorted['8段階']
+    df_plot['7段階'] = df_sorted['7段階']
     df_plot['自治体数'] = df_sorted['自治体数']
     df_plot['条文総数'] = df_sorted['条文総数']
     
@@ -550,7 +550,7 @@ def create_8level_chart(df, output_path):
     target_sum = sum(df_plot[f'{code}_割合'] for code in TARGET_CODINGS)
     df_plot['その他_割合'] = 100 - target_sum
     
-    # グラフ作成 - 横幅を20、高さを12に拡大（8段階になるため）
+    # グラフ作成 - 横幅を20、高さを12に拡大（7段階になるため）
     fig, ax = plt.subplots(figsize=(20, 12))
     
     label_names = {
@@ -564,7 +564,7 @@ def create_8level_chart(df, output_path):
         '7_届出・協議のみ': '区域なし(届出)'
     }
     labels = [f"{label_names.get(r, r)}\n(自治体数={n}, 条文数={t})" 
-              for r, n, t in zip(df_plot['8段階'], df_plot['自治体数'], df_plot['条文総数'])]
+              for r, n, t in zip(df_plot['7段階'], df_plot['自治体数'], df_plot['条文総数'])]
     
     colors = {
         '*Administrative_Guidance': PASTEL_COLORS['Red'],
@@ -606,7 +606,7 @@ def create_8level_chart(df, output_path):
     # X軸ラベル拡大: 12 -> 18
     ax.set_xlabel('条文に占める割合 (%)', fontsize=18)
     # タイトル拡大: 14 -> 24
-    ax.set_title('規制強度8段階別のコーディング分布\n(行政指導・行政処分・罰則)', fontsize=24, fontweight='bold')
+    ax.set_title('規制強度7段階別のコーディング分布\n(行政指導・行政処分・罰則)', fontsize=24, fontweight='bold')
     ax.set_xlim(0, 100)
     # 凡例拡大: 10 -> 16
     ax.legend(loc='lower right', fontsize=16, bbox_to_anchor=(1.0, 0.0))
@@ -623,10 +623,10 @@ def create_8level_chart(df, output_path):
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     plt.close()
-    print(f"\n8段階比較グラフを保存しました: {output_path}")
+    print(f"\n7段階比較グラフを保存しました: {output_path}")
 
-def create_8level_municipality_distribution_chart(df_8level, output_path):
-    """8段階カテゴリの自治体数分布を帯グラフで作成（カラーパレット適用版）"""
+def create_7level_municipality_distribution_chart(df_7level, output_path):
+    """7段階カテゴリの自治体数分布を帯グラフで作成（カラーパレット適用版）"""
     
     label_names = {
         '0_Lv1,2複合型': '禁止・抑制\n複合',
@@ -651,8 +651,8 @@ def create_8level_municipality_distribution_chart(df_8level, output_path):
         PASTEL_COLORS['Gray']    # 届出のみ
     ]
     
-    df_sorted = df_8level.sort_values('8段階')
-    categories = df_sorted['8段階'].tolist()
+    df_sorted = df_7level.sort_values('7段階')
+    categories = df_sorted['7段階'].tolist()
     muni_counts = df_sorted['自治体数'].tolist()
     total_munis = sum(muni_counts)
     
@@ -716,7 +716,7 @@ def get_municipality_level_stats(conn):
     results = []
     for muni_id, muni_name, reg_unit, area_type, regulation_type in municipalities:
         row = {'規制単位': reg_unit or '', 'area_type': area_type or '', 'regulation_type': regulation_type or ''}
-        category = categorize_8level(row)
+        category = categorize_7level(row)
         
         coding_exists = {}
         for code, coding_id in coding_ids.items():
@@ -752,21 +752,27 @@ def get_municipality_level_stats(conn):
         
         results.append({
             '自治体名': muni_name,
-            '8段階': category,
+            '7段階': category,
             **coding_exists
         })
     
     return pd.DataFrame(results)
 
 def create_municipality_proportion_chart(df, output_path):
-    """8段階カテゴリごとの自治体割合グラフを作成（デザイン統一版）"""
+    """7段階カテゴリごとの自治体数グラフを作成（実数表示版）
+    
+    変更点:
+    - 割合表示から実数表示に変更
+    - カテゴリ内の全自治体数をグレーで表示（背景）
+    - 該当条件を満たす自治体数を色付きで重ねて表示
+    """
     
     summary_data = []
-    for category in sorted(df['8段階'].unique()):
-        cat_df = df[df['8段階'] == category]
+    for category in sorted(df['7段階'].unique()):
+        cat_df = df[df['7段階'] == category]
         total = len(cat_df)
         
-        row = {'8段階': category, '自治体数': total}
+        row = {'7段階': category, '自治体数': total}
         for code in TARGET_CODINGS:
             col = f'{code}_有'
             has_count = cat_df[col].sum()
@@ -777,7 +783,7 @@ def create_municipality_proportion_chart(df, output_path):
     
     df_summary = pd.DataFrame(summary_data)
     
-    # グラフ作成 - 横幅を20に拡大、高さを14に調整（プロットエリアを少し縮小）
+    # グラフ作成 - 横幅を20に拡大、高さを14に調整
     fig, axes = plt.subplots(2, 2, figsize=(20, 14))
     axes = axes.flatten()
     
@@ -810,68 +816,49 @@ def create_municipality_proportion_chart(df, output_path):
     for idx, code in enumerate(TARGET_CODINGS):
         ax = axes[idx]
         
-        categories = df_summary['8段階'].tolist()
+        categories = df_summary['7段階'].tolist()
         labels = [label_names.get(c, c) for c in categories]
         totals = df_summary['自治体数'].tolist()
-        has_rates = df_summary[f'{code}_有率'].tolist()
         has_counts = df_summary[f'{code}_有数'].tolist()
+        has_rates = df_summary[f'{code}_有率'].tolist()
         
         x = range(len(labels))
         
-        # 動的Y軸範囲の設定
-        max_rate = max(has_rates) if has_rates else 0
-        if max_rate < 20:
-            y_limit = 25
-        elif max_rate < 40:
-            y_limit = 50
-        elif max_rate < 80:
-            y_limit = 80
-        else:
-            y_limit = 100
+        # Y軸の最大値を動的に設定（全カテゴリの最大自治体数に基づく）
+        max_total = max(totals) if totals else 1
+        y_limit = int(max_total * 1.15)  # 15%余裕を持たせる
         
-        # 「あり」の割合
-        bars_has = ax.bar(x, has_rates, color=colors[code], label='条文あり', alpha=1.0)
-        # 「なし」の割合: y_limitまで埋める（背景色を薄くする）
-        bars_none = ax.bar(x, [y_limit - r for r in has_rates], bottom=has_rates, 
-                           color=PASTEL_COLORS['LightGray'], label='条文なし', alpha=0.3)
+        # 背景: カテゴリ内の全自治体数（グレー）
+        bars_total = ax.bar(x, totals, color=PASTEL_COLORS['LightGray'], label='全自治体', alpha=0.6)
         
-        # ラベルを追加: 黒・太字にして視認性向上
-        for i, (rate, count, total) in enumerate(zip(has_rates, has_counts, totals)):
-            # 表示範囲に対してある程度の高さがあればバーの中に表示
-            if rate > (y_limit * 0.05):
-                ax.text(i, rate/2, f'{rate:.1f}%\n({count}/{total})', 
-                        ha='center', va='center', fontsize=12, fontweight='bold', color='black')
-            elif rate > 0:
-                # 低すぎる場合はバーの上に表示
-                ax.text(i, rate + (y_limit * 0.02), f'{rate:.1f}%\n({count}/{total})', 
-                        ha='center', va='bottom', fontsize=12, fontweight='bold', color='black')
+        # 前面: 該当条件を満たす自治体数（色付き）
+        bars_has = ax.bar(x, has_counts, color=colors[code], label='条文あり', alpha=1.0)
+        
+        # ラベルを追加: 該当数/総数 と割合を表示
+        for i, (count, total, rate) in enumerate(zip(has_counts, totals, has_rates)):
+            # バーの上部に表示
+            label_y = total + (y_limit * 0.02)
+            ax.text(i, label_y, f'{count}/{total}\n({rate:.1f}%)', 
+                    ha='center', va='bottom', fontsize=12, fontweight='bold', color='black')
         
         ax.set_xticks(x)
-        # X軸ラベル(カテゴリ名)拡大: 10 -> 14（8項目で幅が狭くなるため少し小さめ）
         ax.set_xticklabels(labels, fontsize=14)
-        # Y軸ラベル拡大: 11 -> 18
-        ax.set_ylabel('自治体の割合 (%)', fontsize=18)
-        # サブタイトル拡大: 13 -> 20
-        ax.set_title(f'{coding_names[code]}条文を持つ自治体の割合', fontsize=20, fontweight='bold')
+        ax.set_ylabel('自治体数', fontsize=18)
+        ax.set_title(f'{coding_names[code]}条文を持つ自治体数', fontsize=20, fontweight='bold')
         ax.set_ylim(0, y_limit)
-        # 凡例拡大: 10 -> 14
-        ax.legend([bars_has], ['条文あり'], loc='upper right', fontsize=14)
+        
+        # 凡例: 全自治体（グレー）と条文あり（色）を表示
+        ax.legend([bars_total, bars_has], ['全自治体', '条文あり'], loc='upper right', fontsize=14)
         ax.grid(axis='y', alpha=0.3)
         
-        # 目盛りサイズ調整
         ax.tick_params(axis='y', labelsize=14)
-        
-        for y in [25, 50, 75]:
-            if y < y_limit:
-                ax.axhline(y=y, color='gray', linestyle='--', alpha=0.3, linewidth=0.5)
     
-    # 全体タイトル拡大: 15 -> 28
-    plt.suptitle('規制レベル別 - コーディング条文を持つ自治体の割合', 
+    plt.suptitle('規制レベル別 - コーディング条文を持つ自治体数', 
                  fontsize=28, fontweight='bold', y=0.95)
     plt.tight_layout(h_pad=5.0, w_pad=3.0, rect=[0, 0.03, 1, 0.95])
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     plt.close()
-    print(f"\n自治体割合グラフを保存しました: {output_path}")
+    print(f"\n自治体数グラフを保存しました: {output_path}")
     
     return df_summary
 
@@ -939,7 +926,7 @@ def get_enactment_years_from_csv():
         return {}
 
 def export_csc_bun_municipalities_classification(conn, output_dir):
-    """*CSC_bunが付与された自治体を抽出し、8段階カテゴリと各種条文の有無を出力"""
+    """*CSC_bunが付与された自治体を抽出し、7段階カテゴリと各種条文の有無を出力"""
     print("\n*CSC_bun付与自治体の分析を開始します...")
     
     # *CSC_bunを持つ自治体を取得
@@ -967,9 +954,9 @@ def export_csc_bun_municipalities_classification(conn, output_dir):
             
     results = []
     for muni_id, muni_name, reg_unit, area_type, regulation_type in municipalities:
-        # 8段階カテゴリ判定
+        # 7段階カテゴリ判定
         row = {'規制単位': reg_unit or '', 'area_type': area_type or '', 'regulation_type': regulation_type or ''}
-        category = categorize_8level(row)
+        category = categorize_7level(row)
         
         # 各種条文の有無チェック
         coding_status = {}
@@ -1009,7 +996,7 @@ def export_csc_bun_municipalities_classification(conn, output_dir):
             
         results.append({
             '自治体名': muni_name,
-            '8段階カテゴリ': category,
+            '7段階カテゴリ': category,
             '行政指導': coding_status.get('*Administrative_Guidance', '無'),
             '行政処分': coding_status.get('*Administrative_Disposition', '無'),
             '狭義の罰則': coding_status.get('*CLAUSE_PENALTY_NARROW', '無'),
@@ -1019,7 +1006,7 @@ def export_csc_bun_municipalities_classification(conn, output_dir):
     df = pd.DataFrame(results)
     
     # カラムの並び順を指定（見やすくするため）
-    columns_order = ['自治体名', '8段階カテゴリ', '行政指導', '行政処分', '狭義の罰則', 'その他の罰則']
+    columns_order = ['自治体名', '7段階カテゴリ', '行政指導', '行政処分', '狭義の罰則', 'その他の罰則']
     df = df[columns_order]
     
     output_path = f"{output_dir}/csc_bun_municipalities_classification.csv"
@@ -1029,8 +1016,8 @@ def export_csc_bun_municipalities_classification(conn, output_dir):
 
 
 
-def get_8level_time_series_stats(conn, year_map):
-    """8段階カテゴリと制定年を結合して時系列データを生成"""
+def get_7level_time_series_stats(conn, year_map):
+    """7段階カテゴリと制定年を結合して時系列データを生成"""
     
     # 全自治体のデータを取得
     cursor = conn.execute("SELECT name, 規制単位, area_type, regulation_type FROM municipalities")
@@ -1050,25 +1037,25 @@ def get_8level_time_series_stats(conn, year_map):
             continue
             
         row = {'規制単位': reg_unit or '', 'area_type': area_type or '', 'regulation_type': regulation_type or ''}
-        category = categorize_8level(row)
+        category = categorize_7level(row)
         
         results.append({
             '制定年': year,
-            '8段階': category,
+            '7段階': category,
             'count': 1
         })
     
     df = pd.DataFrame(results)
     
     # 年×カテゴリで集計
-    df_agg = df.groupby(['制定年', '8段階']).size().unstack(fill_value=0)
+    df_agg = df.groupby(['制定年', '7段階']).size().unstack(fill_value=0)
     
     return df_agg
 
-def create_8level_time_series_chart(df_agg, output_path):
-    """8段階カテゴリの時系列推移グラフを作成（実数・割合）
+def create_7level_time_series_chart(df_agg, output_path):
+    """7段階カテゴリの時系列推移グラフを作成（実数・割合）
     
-    df_agg: index=制定年, columns=8段階カテゴリ, value=件数
+    df_agg: index=制定年, columns=7段階カテゴリ, value=件数
     """
     
     # 欠損しているカテゴリがあれば0埋めで追加
@@ -1086,6 +1073,7 @@ def create_8level_time_series_chart(df_agg, output_path):
     # 指定順序で並べ替え
     df_agg = df_agg[all_categories]
     
+    # カテゴリ対応カラー
     # カテゴリ対応カラー（8色）
     colors = [
         '#E91E63',               # Lv1,2複合型（ピンク系で目立つ色）
@@ -1146,7 +1134,7 @@ def create_8level_time_series_chart(df_agg, output_path):
     # --- 修正箇所: 右側のグラフ(ax2)の凡例は非表示にする ---
     ax2.legend().set_visible(False)
     
-    plt.suptitle('規制強度8段階カテゴリごとの条例制定推移', fontsize=24, fontweight='bold', y=0.98)
+    plt.suptitle('規制強度7段階カテゴリごとの条例制定推移', fontsize=24, fontweight='bold', y=0.98)
     plt.tight_layout()
     
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
@@ -1195,7 +1183,7 @@ def get_specific_variable_stats(conn):
     results = []
     for muni_id, muni_name, reg_unit, area_type, regulation_type in municipalities:
         row = {'規制単位': reg_unit or '', 'area_type': area_type or '', 'regulation_type': regulation_type or ''}
-        category = categorize_8level(row)
+        category = categorize_7level(row)
         
         # 変数ごとの有無チェック
         coding_exists = {}
@@ -1210,23 +1198,29 @@ def get_specific_variable_stats(conn):
             
         results.append({
             '自治体名': muni_name,
-            '8段階': category,
+            '7段階': category,
             **coding_exists
         })
         
     return pd.DataFrame(results)
 
 def create_specific_variable_chart(df, output_path):
-    """特定変数の割合グラフを作成（動的スケール対応）"""
+    """特定変数の自治体数グラフを作成（実数表示版）
+    
+    変更点:
+    - 割合表示から実数表示に変更
+    - カテゴリ内の全自治体数をグレーで表示（背景）
+    - 該当条件を満たす自治体数を色付きで重ねて表示
+    """
     
     variables = ['騒音防止', '資金計画', '情報公開', '住民同意']
     
     summary_data = []
-    for category in sorted(df['8段階'].unique()):
-        cat_df = df[df['8段階'] == category]
+    for category in sorted(df['7段階'].unique()):
+        cat_df = df[df['7段階'] == category]
         total = len(cat_df)
         
-        row = {'8段階': category, '自治体数': total}
+        row = {'7段階': category, '自治体数': total}
         for var in variables:
             col = f'{var}_有'
             if col in df.columns:
@@ -1267,67 +1261,49 @@ def create_specific_variable_chart(df, output_path):
     for idx, var in enumerate(variables):
         ax = axes[idx]
         
-        categories = df_summary['8段階'].tolist()
+        categories = df_summary['7段階'].tolist()
         labels = [label_names.get(c, c) for c in categories]
         totals = df_summary['自治体数'].tolist()
-        has_rates = df_summary[f'{var}_有率'].tolist()
         has_counts = df_summary[f'{var}_有数'].tolist()
+        has_rates = df_summary[f'{var}_有率'].tolist()
         
         x = range(len(labels))
         
-        # 動的Y軸範囲の設定
-        max_rate = max(has_rates) if has_rates else 0
-        if max_rate < 20:
-            y_limit = 25
-        elif max_rate < 40:
-            y_limit = 50
-        elif max_rate < 80:
-            y_limit = 80
-        else:
-            y_limit = 100
-            
-        # 棒グラフ
-        bars_has = ax.bar(x, has_rates, color=var_colors.get(var, '#999999'), label='条文あり', alpha=1.0)
-        bars_none = ax.bar(x, [y_limit - r for r in has_rates], bottom=has_rates, 
-                           color=PASTEL_COLORS['LightGray'], label='条文なし', alpha=0.3) # alphaを下げて背景っぽく
+        # Y軸の最大値を動的に設定（全カテゴリの最大自治体数に基づく）
+        max_total = max(totals) if totals else 1
+        y_limit = int(max_total * 1.15)  # 15%余裕を持たせる
         
-        # ラベル追加
-        for i, (rate, count, total) in enumerate(zip(has_rates, has_counts, totals)):
-            # 表示範囲に対してある程度の高さがあれば表示
-            if rate > (y_limit * 0.05):
-                ax.text(i, rate/2, f'{rate:.1f}%\n({count}/{total})', 
-                        ha='center', va='center', fontsize=12, fontweight='bold', color='black')
-            elif rate > 0:
-                 # 低すぎる場合はバーの上に表示
-                 ax.text(i, rate + (y_limit * 0.02), f'{rate:.1f}%\n({count}/{total})', 
-                        ha='center', va='bottom', fontsize=12, fontweight='bold', color='black')
-
+        # 背景: カテゴリ内の全自治体数（グレー）
+        bars_total = ax.bar(x, totals, color=PASTEL_COLORS['LightGray'], label='全自治体', alpha=0.6)
+        
+        # 前面: 該当条件を満たす自治体数（色付き）
+        bars_has = ax.bar(x, has_counts, color=var_colors.get(var, '#999999'), label='条文あり', alpha=1.0)
+        
+        # ラベルを追加: 該当数/総数 と割合を表示
+        for i, (count, total, rate) in enumerate(zip(has_counts, totals, has_rates)):
+            # バーの上部に表示
+            label_y = total + (y_limit * 0.02)
+            ax.text(i, label_y, f'{count}/{total}\n({rate:.1f}%)', 
+                    ha='center', va='bottom', fontsize=12, fontweight='bold', color='black')
         
         ax.set_xticks(x)
         ax.set_xticklabels(labels, fontsize=14)
-        ax.set_ylabel('自治体の割合 (%)', fontsize=18)
-        ax.set_title(f'{var}条文を持つ自治体の割合', fontsize=20, fontweight='bold')
+        ax.set_ylabel('自治体数', fontsize=18)
+        ax.set_title(f'{var}条文を持つ自治体数', fontsize=20, fontweight='bold')
         ax.set_ylim(0, y_limit)
         
-        # 凡例
-        # bar_noneは背景用なので凡例には含めないか、含めるなら意味合いを調整
-        # ここではシンプルに「条文あり」だけ示すか、色説明のみにする
-        ax.legend([bars_has], ['条文あり'], loc='upper right', fontsize=14)
+        # 凡例: 全自治体（グレー）と条文あり（色）を表示
+        ax.legend([bars_total, bars_has], ['全自治体', '条文あり'], loc='upper right', fontsize=14)
         
         ax.grid(axis='y', alpha=0.3)
         ax.tick_params(axis='y', labelsize=14)
-        
-        # 補助線
-        for y in [25, 50, 75]:
-            if y < y_limit:
-                ax.axhline(y=y, color='gray', linestyle='--', alpha=0.3, linewidth=0.5)
 
-    plt.suptitle('規制レベル別 - 特定項目（騒音・資金・情報・同意）の保有割合', 
+    plt.suptitle('規制レベル別 - 特定項目（騒音・資金・情報・同意）の保有自治体数', 
                  fontsize=28, fontweight='bold', y=0.95)
     plt.tight_layout(h_pad=5.0, w_pad=3.0, rect=[0, 0.03, 1, 0.95])
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     plt.close()
-    print(f"\n特定変数割合グラフを保存しました: {output_path}")
+    print(f"\n特定変数自治体数グラフを保存しました: {output_path}")
 
 def main():
     conn = sqlite3.connect(DB_PATH)
@@ -1345,12 +1321,12 @@ def main():
         df_categorized.to_csv(f"{OUTPUT_DIR}/regulation_unit_coding_analysis_categorized.csv", index=False, encoding='utf-8-sig')
         create_categorized_chart(df_categorized, f"{OUTPUT_DIR}/regulation_unit_coding_chart_categorized.png")
         
-        df_8level = get_8level_stats(conn)
-        df_8level.to_csv(f"{OUTPUT_DIR}/regulation_unit_coding_analysis_8level.csv", index=False, encoding='utf-8-sig')
-        create_8level_chart(df_8level, f"{OUTPUT_DIR}/regulation_unit_coding_chart_8level.png")
+        df_7level = get_7level_stats(conn)
+        df_7level.to_csv(f"{OUTPUT_DIR}/regulation_unit_coding_analysis_7level.csv", index=False, encoding='utf-8-sig')
+        create_7level_chart(df_7level, f"{OUTPUT_DIR}/regulation_unit_coding_chart_7level.png")
         
         # デザイン修正対象1: 自治体数分布グラフ
-        create_8level_municipality_distribution_chart(df_8level, f"{OUTPUT_DIR}/municipality_distribution_basic_unit.png")
+        create_7level_municipality_distribution_chart(df_7level, f"{OUTPUT_DIR}/municipality_distribution_basic_unit.png")
         
         df_muni = get_municipality_level_stats(conn)
         df_muni.to_csv(f"{OUTPUT_DIR}/municipality_coding_presence.csv", index=False, encoding='utf-8-sig')
@@ -1362,9 +1338,9 @@ def main():
         print("\n時系列データの分析を開始します...")
         year_map = get_enactment_years_from_csv()
         if year_map:
-            df_time_series = get_8level_time_series_stats(conn, year_map)
+            df_time_series = get_7level_time_series_stats(conn, year_map)
             df_time_series.to_csv(f"{OUTPUT_DIR}/regulation_unit_coding_analysis_time_series.csv", encoding='utf-8-sig')
-            create_8level_time_series_chart(df_time_series, f"{OUTPUT_DIR}/regulation_unit_coding_chart_time_series.png")
+            create_7level_time_series_chart(df_time_series, f"{OUTPUT_DIR}/regulation_unit_coding_chart_time_series.png")
         else:
             print("制定年データが取得できなかったため、時系列分析をスキップします。")
             
